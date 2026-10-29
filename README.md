@@ -1,4 +1,4 @@
-# Melodie A11Y
+# ANONA11Y
 
 End-to-end automated pipeline for generating, compiling, evaluating the
 accessibility of, and AI-assisted correction of Android Jetpack Compose
@@ -8,7 +8,7 @@ interfaces produced by LLMs. Developed as a research artifact.
 
 ## What the project is
 
-**Melodie A11Y** is a research tool that evaluates the accessibility of
+**ANONA11Y A11Y** is a research tool that evaluates the accessibility of
 Android Jetpack Compose interfaces on two fronts:
 
 - **Analysis** — generates interfaces with LLMs, compiles them, runs custom
