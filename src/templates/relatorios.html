@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>Reports — Melodie A11Y</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0718;
+      --surface: #160d2a;
+      --border:  #2a1a4a;
+      --accent:  #a855f7;
+      --accent2: #c084fc;
+      --accent4: #fb923c;
+      --text:    #e2d9f3;
+      --muted:   #9286ae;
+      --danger:  #f87171;
+    }
+
+    html { font-size: 93.75%; }
+    html, body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      height: calc(100vh - 49px);
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 340px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sidebar-title { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .count-badge {
+      font-size: 0.65rem; font-weight: 700;
+      background: #1a1a2e; border: 1px solid var(--border);
+      color: var(--muted); padding: 1px 7px; border-radius: 10px;
+    }
+    .search-wrap {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-size: 0.78rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--accent2); }
+    .search-input::placeholder { color: var(--muted); }
+
+    .report-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .report-list::-webkit-scrollbar { width: 4px; }
+    .report-list::-webkit-scrollbar-track { background: transparent; }
+    .report-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .report-item {
+      padding: 12px 20px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .report-item:hover { background: rgba(255,255,255,0.03); }
+    .report-item.active {
+      background: rgba(96,165,250,0.06);
+      border-left-color: var(--accent2);
+    }
+    .ri-id {
+      font-size: 0.72rem; font-weight: 700; color: var(--accent2);
+      font-family: monospace; margin-bottom: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ri-prompt {
+      font-size: 0.73rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+    .ri-meta {
+      display: flex; gap: 10px; align-items: center;
+    }
+    .ri-ts { font-size: 0.65rem; color: var(--muted); }
+    .ri-llms { display: flex; gap: 4px; flex-wrap: wrap; }
+    .ri-llm-tag {
+      font-size: 0.6rem; font-weight: 600; padding: 1px 5px;
+      border-radius: 3px; background: #0f1e38; color: var(--accent2); border: 1px solid #1a3050;
+    }
+    .ri-violations {
+      margin-left: auto; font-size: 0.65rem; font-weight: 700;
+      color: var(--danger);
+    }
+    .ri-violations.zero { color: var(--accent); }
+
+    .empty-list {
+      padding: 40px 20px; text-align: center;
+      font-size: 0.78rem; color: var(--muted); line-height: 1.7;
+    }
+
+    /* ── Main panel ── */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+    }
+    .main::-webkit-scrollbar { width: 5px; }
+    .main::-webkit-scrollbar-track { background: transparent; }
+    .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .empty-state {
+      height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; color: var(--muted);
+    }
+    .empty-state-icon { font-size: 2.5rem; opacity: 0.15; }
+    .empty-state p { font-size: 0.82rem; }
+
+    /* ── Report view ── */
+    .report-view { display: none; }
+    .report-view.visible { display: block; }
+
+    .rv-header {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 18px;
+      margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .rv-meta-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .rv-run-id { font-size: 0.72rem; font-weight: 700; color: var(--accent2); font-family: monospace; }
+    .rv-ts { font-size: 0.68rem; color: var(--muted); }
+    .rv-prompt {
+      font-size: 0.78rem; color: var(--text); line-height: 1.55;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 12px;
+      white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+      max-height: 72px; overflow-y: auto;
+    }
+    .rv-actions { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 6px; border: 1px solid;
+      font-size: 0.73rem; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.8; }
+    .btn-json { color: var(--accent4); border-color: #2a1500; background: #120800; }
+    .btn-fix  { color: var(--accent2); border-color: #0f1e38; background: #050d1a; }
+
+    /* ── LLM sections ── */
+    .llm-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .llm-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+    }
+    .llm-name {
+      font-size: 0.82rem; font-weight: 700; color: #f1f5f9;
+      font-family: monospace; flex: 1;
+    }
+    .llm-status-badge {
+      font-size: 0.62rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 4px; letter-spacing: 0.04em;
+    }
+    .s-success { background: #051209; color: var(--accent); border: 1px solid #0f2a14; }
+    .s-error   { background: #1a0505; color: var(--danger); border: 1px solid #3a0f0f; }
+    .s-skip    { background: #0d0d16; color: var(--muted);  border: 1px solid var(--border); }
+
+    .viol-count {
+      font-size: 0.72rem; font-weight: 700;
+      color: var(--danger);
+    }
+    .viol-count.zero { color: var(--accent); }
+    .chevron { font-size: 0.7rem; color: var(--muted); transition: transform 0.2s; }
+    .llm-section.open .chevron { transform: rotate(90deg); }
+
+    .llm-body { display: none; padding: 0 18px 16px; }
+    .llm-section.open .llm-body { display: block; }
+
+    /* summary row */
+    .summary-row {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 14px;
+    }
+    .stat-box { display: flex; flex-direction: column; gap: 2px; }
+    .stat-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .stat-value { font-size: 1rem; font-weight: 700; color: #f1f5f9; }
+
+    /* violations table */
+    .section-label {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      margin: 14px 0 8px;
+    }
+    .vtable { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+    .vtable th {
+      text-align: left; padding: 6px 10px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+      color: var(--muted); font-size: 0.62rem;
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+    .vtable td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+    .vtable tr:last-child td { border-bottom: none; }
+    .vtype-atf  { color: #fb923c; font-weight: 700; font-size: 0.65rem; }
+    .vtype-lint { color: #a78bfa; font-weight: 700; font-size: 0.65rem; }
+    .vtype-acc  { color: var(--accent2); font-weight: 700; font-size: 0.65rem; }
+    .vcheck { font-family: monospace; font-size: 0.7rem; color: var(--accent); }
+    .vmsg   { color: var(--text); line-height: 1.4; }
+    .vloc   { font-family: monospace; font-size: 0.65rem; color: var(--muted); white-space: nowrap; }
+
+    /* code block */
+    .code-toggle {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 14px; cursor: pointer; user-select: none;
+    }
+    .code-toggle-label { font-size: 0.65rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .code-toggle-arrow { font-size: 0.65rem; color: var(--muted); transition: transform 0.2s; }
+    .code-toggle.open .code-toggle-arrow { transform: rotate(90deg); }
+    .code-block {
+      display: none;
+      margin-top: 8px;
+      background: #07070f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.65;
+      color: #c9d1d9;
+      white-space: pre;
+      overflow-x: auto;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .code-block.open { display: block; }
+
+    .no-data { font-size: 0.75rem; color: var(--muted); padding: 8px 0; }
+    footer { margin-top: 40px; padding: 16px 32px; border-top: 1px solid var(--border); font-size: 0.73rem; color: #7f8ca4; text-align: center; line-height: 1.9; }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* ── Melodie Shell ── */
+    :root { --mono: 'SF Mono','Fira Mono','Consolas',monospace; }
+    body { font-family: var(--mono); display: flex; flex-direction: column; }
+    html, body { height: 100%; }
+    nav { font-size: medium; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 60px; height: 68px; background: rgba(6,5,13,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 36px; }
+    .nav-link { font-size: 0.82em; color: #9488b4; text-decoration: none; transition: color 0.15s; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1; display: inline-flex; align-items: center; font-family: var(--mono); }
+    .nav-link:hover { color: #e8e2f8; }
+    .nav-link.active { color: #c084fc; }
+    .nav-cta { margin-left: 28px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.82em !important; transition: opacity 0.15s, transform 0.15s !important; }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+    .page { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; background: transparent; }
+  </style>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+</head>
+<body>
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="/static/logo-wordmark.png" alt="Melodie A11Y">
+  </a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link">Analysis</a>
+    <a href="/correcao"   class="nav-link">Correction</a>
+    <a href="/relatorios" class="nav-link active">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"         class="nav-link">Log</a>
+    <a href="/teste"         class="nav-link">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+<div class="page">
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Saved analyses</span>
+      <span class="count-badge" id="countBadge">0</span>
+    </div>
+    <div class="search-wrap">
+      <input class="search-input" id="searchInput" type="text" placeholder="Filter by prompt or LLM…">
+    </div>
+    <div class="report-list" id="reportList">
+      <div class="empty-list">Loading…</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="main">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-state-icon">📋</div>
+      <p>Select a report to view</p>
+    </div>
+    <div class="report-view" id="reportView"></div>
+  </main>
+
+</div><!-- /.layout -->
+</div><!-- /.page -->
+
+<script>
+  let allReports      = [];
+  let activeFile      = null;
+  let currentData     = null;   // loaded report object
+  let currentFilename = null;   // loaded report filename
+
+  // ── Load list ──────────────────────────────────────────────
+  async function loadList() {
+    try {
+      const r = await fetch('/api/reports');
+      const d = await r.json();
+      allReports = d.reports || [];
+      renderList(allReports);
+    } catch(e) {
+      document.getElementById('reportList').innerHTML =
+        '<div class="empty-list">Failed to load reports.</div>';
+    }
+  }
+
+  function renderList(reports) {
+    document.getElementById('countBadge').textContent = reports.length;
+    const el = document.getElementById('reportList');
+    if (!reports.length) {
+      el.innerHTML = '<div class="empty-list">No reports found.<br>Run an analysis on the Analysis or CHASE 2027 page.</div>';
+      return;
+    }
+    el.innerHTML = reports.map(r => {
+      const ts = r.timestamp ? new Date(r.timestamp).toLocaleString('en-US') : '-';
+      const v  = r.total_violations;
+      return `<div class="report-item" data-file="${r.filename}" onclick="selectReport('${r.filename}')">
+        <div class="ri-id">${r.run_id || r.filename}</div>
+        <div class="ri-prompt">${esc(r.prompt_preview || '(no prompt)')}…</div>
+        <div class="ri-meta">
+          <span class="ri-ts">${ts}</span>
+          <span class="ri-llms">${(r.llms||[]).map(l=>`<span class="ri-llm-tag">${esc(l)}</span>`).join('')}</span>
+          <span class="ri-violations ${v===0?'zero':''}">${v} violation${v===1?'':'s'}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    // restore active
+    if (activeFile) {
+      document.querySelector(`.report-item[data-file="${activeFile}"]`)?.classList.add('active');
+    }
+  }
+
+  // ── Search ─────────────────────────────────────────────────
+  document.getElementById('searchInput').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    renderList(allReports.filter(r =>
+      (r.prompt_preview||'').toLowerCase().includes(q) ||
+      (r.run_id||'').toLowerCase().includes(q) ||
+      (r.llms||[]).some(l => l.toLowerCase().includes(q))
+    ));
+  });
+
+  // ── Select & load detail ───────────────────────────────────
+  async function selectReport(filename) {
+    if (activeFile === filename) return;
+    activeFile = filename;
+    document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.report-item[data-file="${filename}"]`)?.classList.add('active');
+
+    document.getElementById('emptyState').style.display = 'none';
+    const rv = document.getElementById('reportView');
+    rv.innerHTML = '<div class="empty-state"><p style="color:var(--muted)">Loading…</p></div>';
+    rv.classList.add('visible');
+
+    try {
+      const r = await fetch(`/api/reports/${encodeURIComponent(filename)}`);
+      if (!r.ok) throw new Error(r.statusText);
+      const data = await r.json();
+      currentData     = data;
+      currentFilename = filename;
+      renderReport(data, filename);
+    } catch(e) {
+      rv.innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Failed to load: ${esc(e.message)}</p></div>`;
+    }
+  }
+
+  // ── Render full report ─────────────────────────────────────
+  function renderReport(data, filename) {
+    const rv   = document.getElementById('reportView');
+    const ts   = data.timestamp ? new Date(data.timestamp).toLocaleString('en-US') : '-';
+    const llms = data.llms || {};
+
+    const llmBlocks = Object.entries(llms).map(([name, entry]) => {
+      const ok = entry.status === 'success';
+      const statusClass = ok ? 's-success' : 's-error';
+      const statusLabel = ok ? 'OK' : (entry.status || 'error').replace(/_/g, ' ');
+
+      const totalV = ok
+        ? (entry.accessibility_issues?.total||0) + (entry.static_issues?.total||0) + (entry.atf_issues?.total||0)
+        : 0;
+
+      // timing — keys: generation_s, build_s, lint_s, atf_s, total_s
+      const t = entry.timing || {};
+      const hasTime = ok && Object.keys(t).length > 0;
+      const timing = hasTime
+        ? `<div class="summary-row">
+             <div class="stat-box"><span class="stat-label">Generation</span><span class="stat-value">${fmt(t.generation_s)}s</span></div>
+             <div class="stat-box"><span class="stat-label">Build</span><span class="stat-value">${fmt(t.build_s)}s</span></div>
+             <div class="stat-box"><span class="stat-label">ATF</span><span class="stat-value">${fmt(t.atf_s)}s</span></div>
+             <div class="stat-box"><span class="stat-label">Lint</span><span class="stat-value">${fmt(t.lint_s)}s</span></div>
+             <div class="stat-box"><span class="stat-label">Total</span><span class="stat-value">${fmt(t.total_s)}s</span></div>
+           </div>` : '';
+
+      const rows = buildViolationRows(entry);
+      const violTable = rows.length
+        ? `<div class="section-label">Detected violations (${rows.length})</div>
+           <table class="vtable">
+             <thead><tr><th>Type</th><th>Check / ID</th><th>Message</th><th>Location</th></tr></thead>
+             <tbody>${rows.join('')}</tbody>
+           </table>`
+        : `<div class="no-data">${ok ? 'No violations detected.' : 'Analysis failed — ' + esc(entry.error || entry.status || '')}</div>`;
+
+      const codeEsc = esc(entry.generated_code || '');
+      const codeSection = entry.generated_code
+        ? `<div class="code-toggle" onclick="toggleCode(this)">
+             <span class="code-toggle-arrow">▶</span>
+             <span class="code-toggle-label">Generated code</span>
+           </div>
+           <pre class="code-block">${codeEsc}</pre>`
+        : '';
+
+      return `<div class="llm-section open" id="llm-${esc(name)}">
+        <div class="llm-header" onclick="toggleLlm('${esc(name)}')">
+          <span class="llm-name">${esc(name)}</span>
+          <span class="llm-status-badge ${statusClass}">${statusLabel}</span>
+          <span class="viol-count ${totalV===0?'zero':''}">${totalV} violation${totalV===1?'':'s'}</span>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="llm-body">
+          ${timing}
+          ${violTable}
+          ${codeSection}
+        </div>
+      </div>`;
+    }).join('');
+
+    rv.innerHTML = `
+      <div class="rv-header">
+        <div class="rv-meta-row">
+          <span class="rv-run-id">${esc(data.run_id || filename)}</span>
+          <span class="rv-ts">${ts}</span>
+        </div>
+        <div class="rv-prompt">${esc(data.prompt || '(no prompt)')}</div>
+        <div class="rv-actions">
+          <button class="btn btn-json" onclick="downloadCurrent()">↓ Download JSON</button>
+          <button class="btn btn-fix" onclick="openInFix()">Open in Fix →</button>
+        </div>
+      </div>
+      ${llmBlocks || '<div class="no-data">No LLM found in the report.</div>'}
+    `;
+  }
+
+  function buildViolationRows(entry) {
+    const rows = [];
+
+    // ATF issues: {check, severity, message}
+    (entry.atf_issues?.issues || []).forEach(v => {
+      rows.push(`<tr>
+        <td><span class="vtype-atf">ATF</span></td>
+        <td><span class="vcheck">${esc(v.check || '-')}</span></td>
+        <td class="vmsg">${esc(v.message || '-')}</td>
+        <td class="vloc">—</td>
+      </tr>`);
+    });
+
+    // Static / Lint issues: {id, severity, message, line}
+    (entry.static_issues?.issues || []).forEach(v => {
+      const loc = v.line ? `line ${v.line}` : '—';
+      rows.push(`<tr>
+        <td><span class="vtype-lint">Lint</span></td>
+        <td><span class="vcheck">${esc(v.id || '-')}</span></td>
+        <td class="vmsg">${esc(v.message || '-')}</td>
+        <td class="vloc">${esc(loc)}</td>
+      </tr>`);
+    });
+
+    // Accessibility issues: {id, severity, message, file, line}
+    (entry.accessibility_issues?.issues || []).forEach(v => {
+      const loc = [v.file, v.line ? `L${v.line}` : ''].filter(Boolean).join(':') || '—';
+      rows.push(`<tr>
+        <td><span class="vtype-acc">A11Y</span></td>
+        <td><span class="vcheck">${esc(v.id || '-')}</span></td>
+        <td class="vmsg">${esc(v.message || '-')}</td>
+        <td class="vloc">${esc(loc)}</td>
+      </tr>`);
+    });
+
+    return rows;
+  }
+
+  function toggleLlm(name) {
+    document.getElementById(`llm-${name}`)?.classList.toggle('open');
+  }
+
+  function toggleCode(el) {
+    el.classList.toggle('open');
+    el.nextElementSibling?.classList.toggle('open');
+  }
+
+  function downloadCurrent() {
+    if (!currentData || !currentFilename) return;
+    const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: 'application/json; charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = currentFilename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function openInFix() {
+    if (!currentData || !currentFilename) return;
+    try {
+      sessionStorage.setItem('fix_preload', JSON.stringify({ data: currentData, filename: currentFilename }));
+    } catch(e) { alert('Failed to prepare the data: ' + e.message);
+ return; }
+    window.location.href = '/fix';
+  }
+
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fmt(v) { return v != null ? Number(v).toFixed(1) : '—'; }
+
+  loadList();
+
+  // Expose onclick handlers globally so they survive IIFE wrapping by SPA router
+  window.selectReport   = selectReport;
+  window.toggleCode     = toggleCode;
+  window.toggleLlm      = toggleLlm;
+  window.downloadCurrent = downloadCurrent;
+  window.openInFix      = openInFix;
+</script>
+<script src="/static/js/router.js"></script>
+</body>
+</html>

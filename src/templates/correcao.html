@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>Correction — Melodie A11Y</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0d0718;
+      --surface:      #160d2a;
+      --border:       #2a1a4a;
+      --accent:       #c084fc;
+      --accent-hover: #a855f7;
+      --accent-g:     #a855f7;
+      --text:         #e2d9f3;
+      --muted:        #9286ae;
+      --input-bg:     #1a0d30;
+      --input-border: #3d2060;
+      --header-bg:    #1a0d30;
+    }
+
+    html { font-size: 93.75%; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    aside {
+      width: 360px; min-width: 360px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 18px 16px; gap: 16px;
+      overflow-y: auto;
+    }
+
+
+    .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 8px; }
+
+    /* ── Report selector ── */
+    .report-list {
+      display: flex; flex-direction: column; gap: 3px;
+      max-height: 260px; overflow-y: auto;
+      padding-right: 4px;
+    }
+    .report-item {
+      padding: 6px 10px; border-radius: 6px;
+      border: 1px solid transparent; background: transparent;
+      cursor: pointer; transition: border-color 0.12s, background 0.12s;
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+    .report-item:hover { background: #0f1621; border-color: var(--input-border); }
+    .report-item.active { background: #070e1a; border-color: var(--accent); }
+    .report-item-id { font-family: monospace; font-size: 0.7rem; color: #c9d1d9; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .report-item-ts { display: none; }
+    .report-item-meta { flex-shrink: 0; }
+    .r-tag {
+      font-size: 0.6rem; font-weight: 700; padding: 1px 5px;
+      border-radius: 3px; letter-spacing: 0.03em;
+    }
+    .r-tag-llm  { background: #0a1020; color: var(--accent);  border: 1px solid #1a2a4e; }
+    .r-tag-v    { background: #0a1a10; color: var(--accent-g); border: 1px solid #1a4a2e; }
+    .r-tag-v0   { background: #1a1a1a; color: #808d9f; border: 1px solid #24243a; }
+    .r-tag-warn { background: #2a0f0a; color: #f87171; border: 1px solid #4a1a1a; }
+
+    /* ── Violations per LLM ── */
+    .llm-block {
+      background: var(--input-bg); border: 1px solid var(--input-border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .llm-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      background: #0a0f18; border-bottom: 1px solid var(--input-border);
+    }
+    .llm-name { font-weight: 600; font-size: 0.8rem; flex: 1; color: #c9d1d9; }
+    .vcount { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+    .vcount-ok   { background: #0a1a10; color: var(--accent-g); border: 1px solid #1a4a2e; }
+    .vcount-bad  { background: #2a0f0a; color: #f87171;         border: 1px solid #4a1a1a; }
+    .vcount-warn { background: #1a1000; color: #fbbf24;         border: 1px solid #3a2a00; }
+
+    .v-list { padding: 7px 12px 9px; display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; }
+    .v-item { display: flex; align-items: flex-start; gap: 7px; font-size: 0.7rem; line-height: 1.5; color: var(--muted); }
+    .v-tag {
+      flex-shrink: 0; font-family: monospace; font-weight: 700; font-size: 0.64rem;
+      padding: 1px 5px; border-radius: 4px; margin-top: 2px;
+    }
+    .v-tag-lint   { background: #0a1a10; color: var(--accent-g); }
+    .v-tag-static { background: #0f1a0a; color: #86efac; }
+    .v-tag-atf    { background: #0a1020; color: var(--accent); }
+    .v-msg { color: #a8b8c8; }
+    .no-violations { padding: 8px 12px; font-size: 0.72rem; color: var(--muted); text-align: center; }
+
+    /* ── Run button ── */
+    .run-btn {
+      padding: 11px; background: var(--accent); color: #0a0a18;
+      font-weight: 700; font-size: 0.87rem;
+      border: none; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s; flex-shrink: 0; letter-spacing: 0.02em;
+    }
+    .run-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .run-btn:disabled { background: #1c2333; color: #808d9f; cursor: not-allowed; }
+
+    .or-divider { display: flex; align-items: center; gap: 10px; font-size: 0.68rem; color: #768ead; }
+    .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Main terminal ── */
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    .output-header { display: flex; align-items: center; gap: 10px; padding: 9px 16px; background: var(--header-bg); border-bottom: 1px solid #21262d; font-size: 0.78rem; flex-shrink: 0; }
+    .output-header .title { flex: 1; color: var(--muted); }
+    .status-badge { padding: 2px 9px; border-radius: 99px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+    .s-idle    { background: #1c2333; color: #808d9f; }
+    .s-running { background: #0a1020; color: var(--accent); }
+    .s-done    { background: #0a2016; color: #34d399; }
+    .s-error   { background: #2a0f12; color: #f87171; }
+
+    .clear-btn { background: none; border: 1px solid #21262d; color: #808d9f; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.72rem; transition: color 0.15s, border-color 0.15s; }
+    .clear-btn:hover { color: #c9d1d9; border-color: #3d444d; }
+
+    #output { flex: 1; overflow-y: auto; padding: 14px 18px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.78rem; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+    .ln { display: block; }
+    .ln-empty  { min-height: 0.9em; }
+    .ln-sep    { color: #768ead; }
+    .ln-ok     { color: var(--accent-g); }
+    .ln-err    { color: #f87171; }
+    .ln-warn   { color: #fbbf24; }
+    .ln-info   { color: var(--accent); }
+    .ln-normal { color: var(--text); }
+    .cursor { display: inline-block; width: 0.45em; height: 1.1em; background: var(--accent); animation: blink 1s step-end infinite; vertical-align: text-bottom; border-radius: 1px; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #768ead; text-align: center; padding: 32px; }
+    .empty-icon { font-size: 2.5rem; }
+    .empty-title { font-size: 0.9rem; color: var(--muted); }
+    .empty-sub { font-size: 0.78rem; line-height: 1.6; max-width: 380px; }
+
+    /* the correction tab's blocks are laid out by the aside itself (switchTab sets the same) */
+    #tabCorrection { display: contents; }
+    #tabCorrection > * { flex-shrink: 0; }
+
+    /* ── Correction model picker ── */
+    .cm-list { display: flex; flex-direction: column; gap: 5px; }
+    .cm-item { border: 1px solid var(--input-border); border-radius: 8px; background: rgba(255,255,255,0.02); }
+    .cm-item.selected { border-color: var(--accent); background: rgba(168,85,247,0.06); }
+    .cm-head {
+      width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 11px;
+      background: none; border: none; color: var(--text); font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer;
+    }
+    .cm-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+    .cm-radio { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #4b3a6e; flex-shrink: 0; }
+    .cm-item.selected .cm-radio { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+    .cm-name { flex: 1; font-weight: 600; }
+    .cm-tag { font-size: 0.66rem; color: var(--muted); }
+    .cm-details { display: none; flex-direction: column; gap: 6px; padding: 2px 11px 11px; }
+    .cm-item.selected .cm-details { display: flex; }
+    .cm-details label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .cm-details input {
+      width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text);
+      border-radius: 6px; padding: 7px 9px; font-size: 0.75rem; font-family: 'SF Mono', 'Fira Code', monospace; outline: none;
+    }
+    .cm-details input:focus { border-color: var(--accent); }
+    .cm-details input.missing { border-color: #f87171; }
+    .cm-key-row { display: flex; gap: 6px; }
+    .cm-key-row input { flex: 1; min-width: 0; }
+    .cm-key-toggle { flex-shrink: 0; background: none; border: 1px solid var(--input-border); color: var(--muted); border-radius: 6px; padding: 0 8px; font-size: 0.66rem; cursor: pointer; }
+    .cm-key-toggle:hover { color: var(--text); }
+    .cm-hint { font-size: 0.68rem; color: var(--muted); line-height: 1.5; }
+    .cm-hint a { color: var(--accent); }
+
+    .notice { margin: 0; padding: 9px 12px; border-radius: 8px; font-size: 0.72rem; line-height: 1.6; }
+    .notice-warn  { background: #1a1000; border: 1px solid #3a2a00; color: #fbbf24; }
+    .notice-green { background: #0a1a10; border: 1px solid #1a4a2e; color: var(--accent-g); }
+
+    /* ── Report viewer ── */
+    .rv-section { margin-bottom: 28px; }
+    .rv-section-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .rv-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .rv-meta-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+    .rv-meta-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 2px; }
+    .rv-meta-value { font-size: 0.82rem; color: #e2e8f0; font-weight: 600; }
+    .rv-llm-grid { display: flex; flex-direction: column; gap: 14px; }
+    .rv-llm-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .rv-llm-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0a0f18; border-bottom: 1px solid var(--border); }
+    .rv-llm-name { font-weight: 600; font-size: 0.85rem; flex: 1; color: #e2e8f0; }
+    .rv-stat { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+    .rv-stat-ok   { background: #0a1a10; color: var(--accent-g); border: 1px solid #1a4a2e; }
+    .rv-stat-warn { background: #1a1000; color: #fbbf24; border: 1px solid #3a2a00; }
+    .rv-stat-err  { background: #2a0f0a; color: #f87171; border: 1px solid #4a1a1a; }
+    .rv-stat-gray { background: #1c2333; color: #808d9f; border: 1px solid #24243a; }
+    .rv-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+    .rv-issue { display: flex; align-items: flex-start; gap: 8px; font-size: 0.76rem; line-height: 1.5; padding: 6px 8px; border-radius: 6px; background: #0a0f18; }
+    .rv-issue-tag { flex-shrink: 0; font-family: monospace; font-weight: 700; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; margin-top: 1px; }
+    .rv-tag-lint   { background: #0a1a10; color: var(--accent-g); }
+    .rv-tag-static { background: #0f1a0a; color: #86efac; }
+    .rv-tag-atf    { background: #0a1020; color: var(--accent); }
+    .rv-issue-msg  { color: #a8b8c8; flex: 1; }
+    .rv-issue-loc  { flex-shrink: 0; font-family: monospace; font-size: 0.65rem; color: #808d9f; }
+    .rv-no-issues  { padding: 8px; font-size: 0.75rem; color: var(--muted); text-align: center; }
+    .rv-timing { display: flex; gap: 0; border-top: 1px solid var(--border); }
+    .rv-timing-item {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 10px 6px; border-right: 1px solid var(--border);
+      gap: 3px;
+    }
+    .rv-timing-item:last-child { border-right: none; }
+    .rv-timing-label { font-size: 0.58rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #808d9f; }
+    .rv-timing-value { font-size: 0.82rem; font-weight: 700; color: var(--text); font-family: 'SF Mono', 'Fira Code', monospace; }
+    .rv-timing-item.total { background: #0a0f18; }
+    .rv-timing-item.total .rv-timing-value { color: var(--accent); }
+    .rv-code-toggle {
+      width: 100%; background: none; border: none; border-top: 1px solid var(--border);
+      padding: 8px 14px; text-align: left; cursor: pointer;
+      font-size: 0.7rem; color: var(--muted); transition: color 0.15s, background 0.15s;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .rv-code-toggle:hover { background: #0a0f18; color: var(--text); }
+    .rv-code-block {
+      display: none; border-top: 1px solid var(--border);
+      background: #07080f; padding: 12px 14px;
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.7rem;
+      color: #86efac; line-height: 1.65; white-space: pre; overflow-x: auto;
+      max-height: 320px; overflow-y: auto;
+    }
+
+    /* ── Tabs ── */
+    .tab-switcher {
+      display: flex; gap: 3px;
+      background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px;
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1; padding: 7px 10px; border: none; border-radius: 6px;
+      background: transparent; color: var(--muted);
+      font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab-btn.active { background: var(--header-bg); color: var(--text); }
+    .tab-btn.active.tab-correction { color: var(--accent); }
+    .tab-btn.active.tab-reanalyse  { color: var(--accent-g); }
+
+    /* ── Corrected file list ── */
+    .corrected-list { display: flex; flex-direction: column; gap: 3px; }
+    .corrected-item {
+      padding: 7px 10px; border-radius: 6px;
+      border: 1px solid transparent; background: transparent;
+      cursor: pointer; transition: border-color 0.12s, background 0.12s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .corrected-item:hover { background: #0f1621; border-color: var(--input-border); }
+    .corrected-item.active { background: #070e1a; border-color: var(--accent-g); }
+    .corrected-item-name { font-family: monospace; font-size: 0.7rem; color: #c9d1d9; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .corrected-item-size { font-size: 0.62rem; color: var(--muted); flex-shrink: 0; }
+    .corrected-item-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .corrected-item-origin { font-size: 0.6rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .corrected-rename { flex-shrink: 0; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--muted); cursor: pointer; padding: 1px 6px; font-size: 0.8rem; }
+    .corrected-rename:hover, .corrected-rename:focus-visible { color: #e8e2f8; border-color: var(--input-border); }
+    .corrected-rename-input { flex: 1; min-width: 0; font: 600 0.72rem monospace; color: #f5f0ff; background: #0b0820; border: 1px solid #a855f7; border-radius: 4px; padding: 2px 6px; }
+    .report-item-run { display: block; font-size: 0.6rem; font-weight: 400; color: var(--muted); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #24243a; border-radius: 4px; }
+
+    /* ── Re-analysis specialized view ── */
+    .ra-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+    .ra-summary-card {
+      background: var(--input-bg); border: 1px solid var(--input-border);
+      border-radius: 10px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .ra-summary-card.card-ok   { border-color: #1a4a2e; }
+    .ra-summary-card.card-warn { border-color: #3a2a00; }
+    .ra-summary-card.card-err  { border-color: #4a1a1a; }
+    .ra-summary-value { font-size: 2rem; font-weight: 800; font-family: 'SF Mono','Fira Code',monospace; line-height: 1; }
+    .card-ok   .ra-summary-value { color: var(--accent-g); }
+    .card-warn .ra-summary-value { color: #fbbf24; }
+    .card-err  .ra-summary-value { color: #f87171; }
+    .card-gray .ra-summary-value { color: #808d9f; }
+    .ra-summary-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .ra-summary-sub   { font-size: 0.62rem; color: #808d9f; }
+
+    .ra-trend { display: flex; align-items: flex-end; gap: 5px; padding: 8px 0 4px; }
+    .ra-tl-item { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 40px; }
+    .ra-tl-bar  { width: 28px; border-radius: 3px 3px 0 0; min-height: 4px; background: #1a2a4e; }
+    .ra-tl-item.current .ra-tl-bar  { background: var(--accent-g); }
+    .ra-tl-count { font-size: 0.68rem; font-weight: 700; color: var(--muted); }
+    .ra-tl-item.current .ra-tl-count { color: var(--accent-g); }
+    .ra-tl-label { font-size: 0.58rem; color: #808d9f; text-align: center; white-space: nowrap; overflow: hidden; max-width: 40px; text-overflow: ellipsis; }
+
+    .ra-check-group { background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+    .ra-check-header { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #0a0f18; border-bottom: 1px solid var(--input-border); }
+    .ra-check-name  { font-family: monospace; font-size: 0.72rem; font-weight: 600; color: #e2e8f0; flex: 1; }
+    .ra-check-badge { font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 99px; }
+    .ra-check-atf    { background: #0a1020; color: var(--accent);  border: 1px solid #1a2a4e; }
+    .ra-check-lint   { background: #0a1a10; color: var(--accent-g); border: 1px solid #1a4a2e; }
+    .ra-check-static { background: #0f1a0a; color: #86efac; border: 1px solid #1a3a1e; }
+
+    .ra-issue-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #0d1117; }
+    .ra-issue-row:last-child { border-bottom: none; }
+    .ra-issue-icon { font-size: 1rem; flex-shrink: 0; width: 20px; text-align: center; }
+    .ra-issue-main { flex: 1; min-width: 0; }
+    .ra-issue-composable { font-size: 0.76rem; color: #a8b8c8; font-weight: 500; }
+    .ra-issue-msg  { font-size: 0.67rem; color: var(--muted); line-height: 1.4; margin-top: 2px; word-break: break-all; }
+    .ra-issue-coords { flex-shrink: 0; font-family: monospace; font-size: 0.6rem; color: #768ead; text-align: right; }
+
+    /* ── Melodie Shell ── */
+    :root { --mono: 'SF Mono','Fira Mono','Consolas',monospace; }
+    body { font-family: var(--mono); display: flex; flex-direction: column; }
+    html, body { height: 100%; }
+    nav { font-size: medium; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 60px; height: 68px; background: rgba(6,5,13,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 36px; }
+    .nav-link { font-size: 0.82em; color: #9488b4; text-decoration: none; transition: color 0.15s; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1; display: inline-flex; align-items: center; font-family: var(--mono); }
+    .nav-link:hover { color: #e8e2f8; }
+    .nav-link.active { color: #c084fc; }
+    .nav-cta { margin-left: 28px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.82em !important; transition: opacity 0.15s, transform 0.15s !important; }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+    .page { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; background: transparent; }
+  </style>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+</head>
+<body>
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="/static/logo-wordmark.png" alt="Melodie A11Y">
+  </a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link">Analysis</a>
+    <a href="/correcao"   class="nav-link active">Correction</a>
+    <a href="/relatorios" class="nav-link">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"         class="nav-link">Log</a>
+    <a href="/teste"         class="nav-link">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+<div class="page">
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside>
+    <!-- Tabs -->
+    <div class="tab-switcher">
+      <button class="tab-btn tab-correction active" id="tabBtnCorrection" onclick="switchTab('correction')">Correction</button>
+      <button class="tab-btn tab-reanalyse" id="tabBtnReanalyse" onclick="switchTab('reanalyse')">Re-analysis</button>
+    </div>
+
+    <!-- ── Tab 1: Correction ── -->
+    <div id="tabCorrection">
+
+    <!-- Report selector -->
+    <div>
+      <div class="section-title">Select a report</div>
+      <div class="report-list" id="reportList">
+        <div style="font-size:0.74rem;color:var(--muted);text-align:center;padding:12px 0;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Violations per LLM -->
+    <div id="violationsSection" style="display:none;flex-direction:column;gap:8px;">
+      <div class="section-title">Detected violations</div>
+      <div id="llmBlocks" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- Correction model -->
+    <div>
+      <div class="section-title">Correction model</div>
+      <div class="cm-list" id="cmList">
+        <div style="font-size:0.74rem;color:var(--muted);text-align:center;padding:12px 0;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- VPN notice -->
+    <div class="notice notice-warn" id="vpnNotice" style="display:none;">
+      ⚠ The lab server may require an active VPN connection.
+    </div>
+
+    <div class="or-divider">Automatic correction</div>
+    <button class="run-btn" id="runBtn" disabled onclick="runCorrection()">Fix violations via API</button>
+
+    <div class="notice notice-green" id="correctedNotice" style="display:none;">
+      ✓ Correction finished. Files saved in outputs/codes/. Ready for re-analysis.
+    </div>
+
+    </div><!-- /tabCorrection -->
+
+    <!-- ── Tab 2: Re-analysis ── -->
+    <div id="tabReanalyse" style="display:none;flex-direction:column;gap:16px;">
+
+      <div>
+        <div class="section-title">Corrected files</div>
+        <div class="corrected-list" id="correctedList">
+          <div style="font-size:0.74rem;color:var(--muted);text-align:center;padding:12px 0;">Loading...</div>
+        </div>
+      </div>
+
+      <button class="run-btn" id="reanalyseBtn" disabled onclick="runReanalyse()"
+        style="background:var(--accent-g);color:#05100a;">
+        Start re-analysis
+      </button>
+      <button class="run-btn" id="reanalyseBtnDisabled" disabled
+        style="display:none;background:var(--accent-g);color:#05100a;">
+        Running...
+      </button>
+
+      <div>
+        <div class="section-title">Re-analysis reports</div>
+        <div class="report-list" id="reanalyseReportList">
+          <div style="font-size:0.74rem;color:var(--muted);text-align:center;padding:12px 0;">None yet</div>
+        </div>
+      </div>
+
+    </div><!-- /tabReanalyse -->
+
+  </aside>
+
+  <!-- Main panel -->
+  <main>
+    <div class="output-header">
+      <span class="title" id="mainTitle">Select a report</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="status-badge s-idle" id="statusBadge" style="display:none;">Waiting</span>
+        <button class="clear-btn" id="downloadBtn" onclick="downloadReport()" style="display:none;">HTML</button>
+        <button class="clear-btn" id="downloadJsonBtn" onclick="downloadReportJson()" style="display:none;border-color:#2a1500;color:#fb923c;">JSON</button>
+        <button class="clear-btn" id="clearBtn" onclick="showReportView()" style="display:none;">View report</button>
+        <button class="clear-btn" id="outputClearBtn" onclick="clearOutput()" style="display:none;">Clear output</button>
+      </div>
+    </div>
+
+    <!-- Empty state (nothing selected) -->
+    <div id="emptyState" class="empty-state">
+      <div class="empty-title">No report selected</div>
+      <div class="empty-sub">Click a report in the sidebar to view it.</div>
+    </div>
+
+    <!-- Report viewer -->
+    <div id="reportView" style="display:none;flex:1;overflow-y:auto;padding:20px 24px;">
+      <div id="reportContent"></div>
+    </div>
+
+    <!-- Correction output -->
+    <div id="output" style="display:none;flex:1;overflow-y:auto;padding:14px 18px;font-family:'SF Mono','Fira Code',monospace;font-size:0.78rem;line-height:1.65;white-space:pre-wrap;word-break:break-word;"></div>
+  </main>
+
+</div><!-- /.layout -->
+</div><!-- /.page -->
+
+<script>
+  let running = false;
+  let selectedFilename = null;
+  let currentReportData = null;
+  let wantCorrected = null, wantReanalysis = null;   // select what was just produced
+
+  // ── Load report list ─────────────────────────────────────────────────────────
+  async function loadReportList() {
+    try {
+      const r = await fetch('/api/reports');
+      const data = await r.json();
+      renderReportList(data.reports || []);
+    } catch (e) {
+      document.getElementById('reportList').innerHTML =
+        '<div style="font-size:0.74rem;color:#f87171;text-align:center;padding:12px 0;">Failed to load reports</div>';
+    }
+  }
+
+  function renderReportList(reports) {
+    const container = document.getElementById('reportList');
+    if (reports.length === 0) {
+      container.innerHTML =
+        '<div style="font-size:0.74rem;color:var(--muted);text-align:center;padding:12px 0;">No reports found. Run an analysis first.</div>';
+      return;
+    }
+    container.innerHTML = '';
+    for (const rep of reports) {
+      const ts = rep.timestamp ? new Date(rep.timestamp).toLocaleString('en-US') : '';
+      const vTag = rep.total_violations > 0
+        ? `<span class="r-tag r-tag-warn">${rep.total_violations} violation${rep.total_violations > 1 ? 's' : ''}</span>`
+        : `<span class="r-tag r-tag-v0">no violations</span>`;
+      const llmTags = (rep.llms || []).map(l =>
+        `<span class="r-tag r-tag-llm">${escHtml(l)}</span>`).join('');
+
+      const div = document.createElement('div');
+      div.className = 'report-item';
+      div.dataset.filename = rep.filename;
+      const gen = rep.meta && rep.meta.generator ? `<span class="r-tag r-tag-llm">${escHtml(rep.meta.generator)}</span>` : '';
+      div.title = rep.filename;
+      div.innerHTML = `
+        <div class="report-item-id">${escHtml(rep.label || rep.run_id)}${rep.label ? `<span class="report-item-run">${escHtml(rep.run_id)}</span>` : ''}</div>
+        <div class="report-item-meta">${gen}${vTag}</div>`;
+      div.addEventListener('click', () => selectReport(rep.filename, div));
+      container.appendChild(div);
+    }
+    // select the report asked for in the URL (?report=...), otherwise the newest
+    const want = new URLSearchParams(location.search).get('report');
+    const target = want ? [...container.querySelectorAll('.report-item')].find(d => d.dataset.filename === want) : null;
+    const first = target || container.querySelector('.report-item');
+    if (first) { first.click(); if (target) target.scrollIntoView({ block: 'nearest' }); }
+  }
+
+  async function selectReport(filename, el) {
+    document.querySelectorAll('.report-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+    selectedFilename = filename;
+
+    document.getElementById('mainTitle').textContent = filename.replace(/^report_/, '').replace('.json', '');
+
+    try {
+      const r = await fetch(`/api/reports/${encodeURIComponent(filename)}`);
+      if (!r.ok) throw new Error(r.statusText);
+      const data = await r.json();
+      currentReportData = data;
+      renderViolations(data);
+      renderReportView(data);
+      showReportView();
+      document.getElementById('downloadBtn').style.display = '';
+      document.getElementById('downloadJsonBtn').style.display = '';
+    } catch (e) {
+      document.getElementById('violationsSection').style.display = 'flex';
+      document.getElementById('llmBlocks').innerHTML =
+        '<div style="font-size:0.74rem;color:#f87171;padding:8px;">Failed to load report</div>';
+    }
+  }
+
+  function showReportView() {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('output').style.display = 'none';
+    document.getElementById('reportView').style.display = '';
+    document.getElementById('clearBtn').style.display = 'none';
+    document.getElementById('outputClearBtn').style.display = 'none';
+    document.getElementById('statusBadge').style.display = 'none';
+  }
+
+  function renderReportView(data) {
+    const llms = data.llms || {};
+    const ts = data.timestamp ? new Date(data.timestamp).toLocaleString('en-US') : '-';
+    const promptPreview = (data.prompt || '').substring(0, 120);
+
+    let totalV = 0;
+    for (const e of Object.values(llms)) {
+      if (e.status === 'success') {
+        totalV += (e.accessibility_issues?.total || 0) + (e.static_issues?.total || 0) + (e.atf_issues?.total || 0);
+      }
+    }
+
+    let html = `
+      <div class="rv-section">
+        <div class="rv-section-title">Report information</div>
+        <div class="rv-meta">
+          <div class="rv-meta-item"><div class="rv-meta-label">Run ID</div><div class="rv-meta-value">${escHtml(data.run_id || '-')}</div></div>
+          <div class="rv-meta-item"><div class="rv-meta-label">Date</div><div class="rv-meta-value">${escHtml(ts)}</div></div>
+          <div class="rv-meta-item"><div class="rv-meta-label">LLMs</div><div class="rv-meta-value">${Object.keys(llms).length}</div></div>
+          <div class="rv-meta-item"><div class="rv-meta-label">Total violations</div><div class="rv-meta-value">${totalV}</div></div>
+        </div>
+        ${promptPreview ? `<div style="font-size:0.75rem;color:var(--muted);line-height:1.6;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">${escHtml(promptPreview)}${data.prompt?.length > 120 ? '…' : ''}</div>` : ''}
+      </div>
+      <div class="rv-section">
+        <div class="rv-section-title">Results per LLM</div>
+        <div class="rv-llm-grid">`;
+
+    for (const [llm, entry] of Object.entries(llms)) {
+      const lintIssues   = entry.accessibility_issues?.issues  || [];
+      const staticIssues = entry.static_issues?.issues         || [];
+      const atfIssues    = entry.atf_issues?.issues            || [];
+      const total = lintIssues.length + staticIssues.length + atfIssues.length;
+      const t = entry.timing || {};
+
+      const statClass = entry.status !== 'success' ? 'rv-stat-gray' : total === 0 ? 'rv-stat-ok' : total > 5 ? 'rv-stat-err' : 'rv-stat-warn';
+      const statLabel = entry.status !== 'success' ? entry.status : total === 0 ? 'no violations' : `${total} violation${total > 1 ? 's' : ''}`;
+
+      let issuesHtml = '';
+      for (const i of lintIssues)
+        issuesHtml += `<div class="rv-issue"><span class="rv-issue-tag rv-tag-lint">LINT</span><span class="rv-issue-msg">${escHtml(i.id)}: ${escHtml(i.message||'')}</span><span class="rv-issue-loc">L${i.line||''}</span></div>`;
+      for (const i of staticIssues)
+        issuesHtml += `<div class="rv-issue"><span class="rv-issue-tag rv-tag-static">STATIC</span><span class="rv-issue-msg">${escHtml(i.id)}: ${escHtml(i.message||'')}</span><span class="rv-issue-loc">L${i.line||''}</span></div>`;
+      for (const i of atfIssues)
+        issuesHtml += `<div class="rv-issue"><span class="rv-issue-tag rv-tag-atf">ATF</span><span class="rv-issue-msg">${escHtml(i.check)}: ${escHtml(i.message||'')}</span></div>`;
+      if (!issuesHtml) issuesHtml = '<div class="rv-no-issues">No violations detected</div>';
+
+      html += `
+        <div class="rv-llm-card">
+          <div class="rv-llm-header">
+            <span class="rv-llm-name">${escHtml(llm)}</span>
+            <span class="rv-stat ${statClass}">${statLabel}</span>
+          </div>
+          <div class="rv-body">${issuesHtml}</div>
+          ${t.total_s ? `<div class="rv-timing">
+            <div class="rv-timing-item"><span class="rv-timing-label">Generation</span><span class="rv-timing-value">${(t.generation_s||0).toFixed(1)}s</span></div>
+            <div class="rv-timing-item"><span class="rv-timing-label">Build</span><span class="rv-timing-value">${(t.build_s||0).toFixed(1)}s</span></div>
+            <div class="rv-timing-item"><span class="rv-timing-label">Lint</span><span class="rv-timing-value">${(t.lint_s||0).toFixed(1)}s</span></div>
+            ${t.atf_s ? `<div class="rv-timing-item"><span class="rv-timing-label">ATF</span><span class="rv-timing-value">${t.atf_s.toFixed(1)}s</span></div>` : ''}
+            <div class="rv-timing-item total"><span class="rv-timing-label">Total</span><span class="rv-timing-value">${t.total_s.toFixed(1)}s</span></div>
+          </div>` : ''}
+          ${entry.generated_code ? `
+          <button class="rv-code-toggle" onclick="toggleCode(this)">
+            <span>View generated code (${entry.generated_code.split('\n').length} lines)</span>
+            <span class="rv-code-arrow">▼</span>
+          </button>
+          <div class="rv-code-block">${escHtml(entry.generated_code)}</div>` : ''}
+        </div>`;
+    }
+
+    html += `</div></div>`;
+    document.getElementById('reportContent').innerHTML = html;
+  }
+
+  function renderViolations(data) {
+    const section  = document.getElementById('violationsSection');
+    const container = document.getElementById('llmBlocks');
+    section.style.display = 'flex';
+    container.innerHTML = '';
+
+    let totalViolations = 0;
+
+    for (const [llm, entry] of Object.entries(data.llms || {})) {
+      if (entry.status !== 'success') continue;
+
+      const lintIssues   = entry.accessibility_issues?.issues  || [];
+      const staticIssues = entry.static_issues?.issues         || [];
+      const atfIssues    = entry.atf_issues?.issues            || [];
+      const total = lintIssues.length + staticIssues.length + atfIssues.length;
+      totalViolations += total;
+
+      const countClass = total === 0 ? 'vcount-ok' : total > 5 ? 'vcount-bad' : 'vcount-warn';
+      const countLabel = total === 0 ? '✓ ok' : `${total}×`;
+
+      let itemsHtml = '';
+      for (const i of lintIssues)
+        itemsHtml += `<div class="v-item"><span class="v-tag v-tag-lint">LINT</span><span class="v-msg">${escHtml((i.message||'').substring(0,80))}</span></div>`;
+      for (const i of staticIssues)
+        itemsHtml += `<div class="v-item"><span class="v-tag v-tag-static">STATIC</span><span class="v-msg">${escHtml((i.message||'').substring(0,80))}</span></div>`;
+      for (const i of atfIssues)
+        itemsHtml += `<div class="v-item"><span class="v-tag v-tag-atf">ATF</span><span class="v-msg">${escHtml((i.message||'').substring(0,80))}</span></div>`;
+      if (total === 0)
+        itemsHtml = '<div class="no-violations">No violations</div>';
+
+      container.innerHTML += `
+        <div class="llm-block">
+          <div class="llm-header">
+            <span class="llm-name">${escHtml(llm)}</span>
+            <span class="vcount ${countClass}">${countLabel}</span>
+          </div>
+          <div class="v-list">${itemsHtml}</div>
+        </div>`;
+    }
+
+    document.getElementById('runBtn').disabled = totalViolations === 0;
+    hasViolations = totalViolations > 0;
+    updateVpnNotice();
+  }
+
+  // ── Correction model picker ──────────────────────────────────────────────────
+  // One model fixes the code: local (lab server, Ollama, any OpenAI-compatible server) or
+  // an online API with the person's key. Values are sent with the request (env vars of
+  // the corrector process) and kept only in this tab's sessionStorage.
+  const CM_INFO = [
+    { key: 'labserver', name: 'Lab server (Open WebUI)', tag: 'local · VPN', fields: ['base_url', 'api_key', 'model'], keyLabel: 'Open WebUI token', required: ['base_url', 'api_key'] },
+    { key: 'ollama',    name: 'Ollama',                 tag: 'local',       fields: ['base_url', 'model'] },
+    { key: 'custom',    name: 'Other server (OpenAI-compatible)', tag: 'local or online', fields: ['base_url', 'api_key', 'model'], keyOptional: true, required: ['base_url', 'model'] },
+    { key: 'openai',    name: 'OpenAI',           tag: 'online', fields: ['api_key', 'model'], model: 'gpt-4.5',                 keyUrl: 'https://platform.openai.com/api-keys' },
+    { key: 'anthropic', name: 'Anthropic Claude', tag: 'online', fields: ['api_key', 'model'], model: 'claude-sonnet-4-6',       keyUrl: 'https://console.anthropic.com/settings/keys' },
+    { key: 'gemini',    name: 'Gemini',           tag: 'online', fields: ['api_key', 'model'], model: 'gemini-2.5-pro',          keyUrl: 'https://aistudio.google.com/apikey' },
+    { key: 'groq',      name: 'Groq',             tag: 'online', fields: ['api_key', 'model'], model: 'llama-3.3-70b-versatile', keyUrl: 'https://console.groq.com/keys' },
+    { key: 'deepseek',  name: 'DeepSeek',         tag: 'online', fields: ['api_key', 'model'], model: 'deepseek-coder',          keyUrl: 'https://platform.deepseek.com/api_keys' },
+    { key: 'xai',       name: 'xAI Grok',         tag: 'online', fields: ['api_key', 'model'], model: 'grok-3-mini',             keyUrl: 'https://console.x.ai' },
+  ];
+  const CM_STORE = 'melodie.corrector';
+  const FIELD_LABEL = { base_url: 'Server URL', api_key: 'API key', model: 'Model' };
+  let cmSelected = 'labserver', cmEnv = {}, cmEnvUrl = {}, hasViolations = false;
+  const cmItems = {};
+
+  function cmFields(key) {
+    const fields = {};
+    cmItems[key].querySelectorAll('[data-field]').forEach(inp => { fields[inp.dataset.field] = inp.value.trim(); });
+    return fields;
+  }
+  function cmSave() {
+    const data = { selected: cmSelected, fields: {} };
+    for (const k of Object.keys(cmItems)) data.fields[k] = cmFields(k);
+    try { sessionStorage.setItem(CM_STORE, JSON.stringify(data)); } catch {}
+  }
+  function cmSelect(key, focus) {
+    cmSelected = key;
+    for (const [k, item] of Object.entries(cmItems)) {
+      item.classList.toggle('selected', k === key);
+      item.querySelector('.cm-head').setAttribute('aria-checked', k === key ? 'true' : 'false');
+    }
+    if (focus) { const first = cmItems[key].querySelector('[data-field]'); if (first) first.focus(); }
+    updateVpnNotice();
+    cmSave();
+  }
+  function updateVpnNotice() {
+    document.getElementById('vpnNotice').style.display = hasViolations && cmSelected === 'labserver' ? '' : 'none';
+  }
+  // empty fields that the chosen model needs (a key may also come from .env)
+  function cmMissing() {
+    const info = CM_INFO.find(c => c.key === cmSelected);
+    const fields = cmFields(cmSelected);
+    const need = info.required || info.fields.filter(f => f !== 'base_url' && f !== 'model');
+    return need.filter(f => !fields[f] && !(f === 'api_key' && cmEnv[cmSelected]) && !(f === 'base_url' && cmEnvUrl[cmSelected]));
+  }
+  function cmRequest() {
+    const body = { provider: cmSelected };
+    for (const [f, v] of Object.entries(cmFields(cmSelected))) if (v) body[f] = v;
+    return body;
+  }
+  function cmLabel() {
+    const info = CM_INFO.find(c => c.key === cmSelected);
+    const model = cmFields(cmSelected).model || cmItems[cmSelected].querySelector('[data-field="model"]').placeholder;
+    return `${info.name.replace(/ \(.*\)$/, '')}${model ? ' (' + model + ')' : ''}`;
+  }
+
+  async function loadCorrectorModels() {
+    const list = document.getElementById('cmList');
+    let status = {};
+    try { status = await fetch('/api/status').then(r => r.json()); } catch {}
+    cmEnv = { ...(status.llms || {}), labserver: !!status.labserver, ollama: false };
+    cmEnvUrl = { labserver: !!status.labserver_base_url };
+    const defaults = {
+      labserver: { base_url: status.labserver_base_url || 'https://your-lab-server', model: status.labserver_model || 'qwen3-coder-30b-a3b-instruct-fp8' },
+      ollama:   { base_url: status.ollama_base_url || 'http://host.docker.internal:11434', model: status.ollama_model || 'llama3.2' },
+      custom:   { base_url: 'http://host.docker.internal:1234/v1', model: 'model-name' },
+    };
+    let stored = {};
+    try { stored = JSON.parse(sessionStorage.getItem(CM_STORE)) || {}; } catch {}
+    list.innerHTML = '';
+    list.setAttribute('role', 'radiogroup');
+    list.setAttribute('aria-label', 'Correction model');
+    CM_INFO.forEach(c => {
+      const id = 'cm-' + c.key;
+      const item = document.createElement('div');
+      item.className = 'cm-item';
+      const ph = f => {
+        if (f === 'model') return (defaults[c.key] && defaults[c.key].model) || c.model || '';
+        if (f === 'base_url') return defaults[c.key].base_url;
+        if (cmEnv[c.key]) return 'key from .env';
+        return c.keyOptional ? 'optional' : 'paste your key';
+      };
+      const inputs = c.fields.map(f => f === 'api_key' ? `
+          <label for="${id}-${f}">${c.keyLabel || FIELD_LABEL[f]}</label>
+          <div class="cm-key-row">
+            <input id="${id}-${f}" data-field="${f}" type="password" spellcheck="false" autocomplete="off" placeholder="${ph(f)}">
+            <button type="button" class="cm-key-toggle" aria-controls="${id}-${f}" aria-pressed="false">show</button>
+          </div>` : `
+          <label for="${id}-${f}">${FIELD_LABEL[f]}</label>
+          <input id="${id}-${f}" data-field="${f}" type="text" spellcheck="false" autocomplete="off" placeholder="${ph(f)}">`).join('');
+      const hint = c.key === 'custom' ? 'LM Studio, vLLM, llama.cpp or any other service with the OpenAI API.'
+        : c.keyUrl ? `Leave blank to use ${cmEnv[c.key] ? 'the .env key and ' : ''}the default model. <a href="${c.keyUrl}" target="_blank" rel="noopener">Get a key</a>`
+        : 'Leave blank to use the .env value.';
+      item.innerHTML = `
+        <button type="button" class="cm-head" role="radio" aria-checked="false" aria-controls="${id}-details">
+          <span class="cm-radio"></span><span class="cm-name">${c.name}</span><span class="cm-tag">${c.tag}</span>
+        </button>
+        <div class="cm-details" id="${id}-details">${inputs}<p class="cm-hint">${hint}</p></div>`;
+      cmItems[c.key] = item;
+      const saved = stored.fields && stored.fields[c.key];
+      item.querySelectorAll('[data-field]').forEach(inp => {
+        if (saved && saved[inp.dataset.field]) inp.value = saved[inp.dataset.field];
+        inp.addEventListener('input', () => { inp.classList.remove('missing'); cmSave(); });
+      });
+      const toggle = item.querySelector('.cm-key-toggle');
+      if (toggle) toggle.addEventListener('click', () => {
+        const inp = item.querySelector('[data-field="api_key"]');
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        toggle.textContent = show ? 'hide' : 'show';
+        toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+      });
+      item.querySelector('.cm-head').addEventListener('click', () => cmSelect(c.key, true));
+      list.appendChild(item);
+    });
+    cmSelect(CM_INFO.some(c => c.key === stored.selected) ? stored.selected : 'labserver', false);
+  }
+
+  // ── Run correction ───────────────────────────────────────────────────────────
+  async function runCorrection() {
+    if (running || !selectedFilename) return;
+    const missing = cmMissing();
+    if (missing.length) {
+      missing.forEach(f => cmItems[cmSelected].querySelector(`[data-field="${f}"]`).classList.add('missing'));
+      const info = CM_INFO.find(c => c.key === cmSelected);
+      alert('Fill in for the correction model: ' + missing.map(f => ((f === 'api_key' && info.keyLabel) || FIELD_LABEL[f]).toLowerCase()).join(', ') + '.');
+      return;
+    }
+    running = true;
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    btn.textContent = 'Corrigindo...';
+    setStatus('running', 'Running');
+
+    const outputEl = document.getElementById('output');
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('reportView').style.display = 'none';
+    outputEl.style.display = '';
+    document.getElementById('statusBadge').style.display = '';
+    document.getElementById('clearBtn').style.display = '';
+    document.getElementById('outputClearBtn').style.display = '';
+    outputEl.innerHTML = '';
+    appendLine(`Report: ${selectedFilename}`, 'info');
+    appendLine(`Correction model: ${cmLabel()}`, 'info');
+    appendLine('', 'empty');
+
+    try {
+      const resp = await fetch('/api/correct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: selectedFilename, ...cmRequest() }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        appendLine(`ERROR: ${err.detail || resp.statusText}`, 'err');
+        setStatus('error', 'Error');
+        running = false;
+        btn.disabled = false;
+        btn.textContent = 'Fix violations via API';
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '', failed = false;
+      const produced = [];
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        for (const part of parts) {
+          if (!part.startsWith('data:')) continue;
+          const text = part.slice(5).trim();
+          if (text === '__DONE__') {
+            appendLine('', 'empty');
+            if (failed || !produced.length) {
+              appendLine(failed ? 'The correction failed: see the error above (key, URL, model or connection).' : 'No corrected file was produced (no violations?).', failed ? 'err' : 'info');
+              setStatus(failed ? 'error' : 'done', failed ? 'Error' : 'Done');
+            } else {
+              appendLine(`Correction finished: ${produced.join(', ')}`, 'ok');
+              setStatus('done', 'Done');
+              document.getElementById('correctedNotice').style.display = '';
+              wantCorrected = produced[produced.length - 1];
+              loadCorrectedFiles();
+            }
+            running = false;
+            btn.disabled = false;
+            btn.textContent = 'Fix violations via API';
+            return;
+          }
+          if (text.startsWith('CORRECTED_FILE:')) { produced.push(text.slice(15)); continue; }
+          if (/\[ERROR\]|Traceback/.test(text)) failed = true;
+          appendLine(text);
+        }
+      }
+    } catch (e) {
+      appendLine(`Connection error: ${e.message}`, 'err');
+      setStatus('error', 'Error');
+    } finally {
+      running = false;
+      btn.disabled = false;
+      btn.textContent = 'Fix violations via API';
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function appendLine(text, cls) {
+    const outputEl = document.getElementById('output');
+    const ln = document.createElement('span');
+    ln.className = 'ln ln-' + (cls || classifyLine(text));
+    ln.textContent = text || '';
+    if (!text) ln.classList.add('ln-empty');
+    outputEl.appendChild(ln);
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
+
+  function classifyLine(t) {
+    if (!t) return 'empty';
+    if (/error|falhou|failed|exception/i.test(t)) return 'err';
+    if (/warn|aviso/i.test(t)) return 'warn';
+    if (/done|conclu|salvo|saved|corrected|✓/i.test(t)) return 'ok';
+    if (/\[.*\]/.test(t)) return 'info';
+    return 'normal';
+  }
+
+  function setStatus(key, label) {
+    const el = document.getElementById('statusBadge');
+    el.className = 'status-badge s-' + key;
+    el.textContent = label;
+  }
+
+  function clearOutput() {
+    document.getElementById('output').innerHTML = '';
+    document.getElementById('correctedNotice').style.display = 'none';
+    showReportView();
+  }
+
+  function toggleCode(btn) {
+    const block = btn.nextElementSibling;
+    const open = block.style.display === 'block';
+    block.style.display = open ? 'none' : 'block';
+    btn.querySelector('.rv-code-arrow').textContent = open ? '▼' : '▲';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── ATF bounds → composable map ─────────────────────────────────────────────
+  const ATF_BOUNDS_MAP = [
+    { pattern: '[76,51][226,201]',      composable: 'TopActions — Favorite',        icon: '♡' },
+    { pattern: '[995,51][1145,201]',    composable: 'TopActions — Share',            icon: '↑' },
+    { pattern: '[120,1792][270,1942]',  composable: 'PlaybackControls — Shuffle',    icon: '⇌' },
+    { pattern: '[315,1792][465,1942]',  composable: 'PlaybackControls — Previous',   icon: '⏮' },
+    { pattern: '[510,1766][711,1967]',  composable: 'PlaybackControls — Play/Pause', icon: '▶' },
+    { pattern: '[756,1792][906,1942]',  composable: 'PlaybackControls — Next',       icon: '⏭' },
+    { pattern: '[951,1792][1101,1942]', composable: 'PlaybackControls — Repeat',     icon: '↻' },
+    { pattern: '[75,1545][1145,1608]',  composable: 'ProgressSection — Slider',      icon: '▬' },
+    { pattern: '[188,2530][1032,2593]', composable: 'VolumeControl — Slider',        icon: '♪' },
+  ];
+
+  function resolveAtfBounds(message) {
+    for (const m of ATF_BOUNDS_MAP) {
+      if (message.includes(m.pattern)) return m;
+    }
+    const match = message.match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
+    return match
+      ? { pattern: match[0], composable: 'Unknown element', icon: '?' }
+      : { pattern: '', composable: message, icon: '!' };
+  }
+
+  // ── All loaded re-analysis reports (for trend) ───────────────────────────────
+  let allReanalyseReports = [];
+
+  // ── Render specialized re-analysis view ──────────────────────────────────────
+  function renderReanalyseView(data) {
+    const llms = data.llms || {};
+    let atfTotal = 0, lintTotal = 0, staticTotal = 0;
+    let atfIssuesAll = [], lintIssuesAll = [], staticIssuesAll = [];
+    let timing = null, buildOk = true;
+
+    for (const entry of Object.values(llms)) {
+      if (entry.status !== 'success') { buildOk = false; continue; }
+      atfIssuesAll    = atfIssuesAll.concat(entry.atf_issues?.issues || []);
+      lintIssuesAll   = lintIssuesAll.concat(entry.accessibility_issues?.issues || []);
+      staticIssuesAll = staticIssuesAll.concat(entry.static_issues?.issues || []);
+      atfTotal    += entry.atf_issues?.total    || 0;
+      lintTotal   += entry.accessibility_issues?.total || 0;
+      staticTotal += entry.static_issues?.total  || 0;
+      if (entry.timing) timing = entry.timing;
+    }
+
+    const ts    = data.timestamp ? new Date(data.timestamp).toLocaleString('en-US') : '-';
+    const runId = data.run_id || '-';
+
+    // summary cards
+    const ac = n => n === 0 ? 'card-ok' : n > 5 ? 'card-err' : 'card-warn';
+    const summaryHtml = `<div class="ra-summary-grid">
+      <div class="ra-summary-card ${ac(atfTotal)}">
+        <div class="ra-summary-value">${atfTotal}</div>
+        <div class="ra-summary-label">ATF</div>
+        <div class="ra-summary-sub">SpeakableText · TouchTarget</div>
+      </div>
+      <div class="ra-summary-card ${ac(lintTotal)}">
+        <div class="ra-summary-value">${lintTotal}</div>
+        <div class="ra-summary-label">Lint A11Y</div>
+        <div class="ra-summary-sub">ComposeIcon · TextField</div>
+      </div>
+      <div class="ra-summary-card ${ac(staticTotal)}">
+        <div class="ra-summary-value">${staticTotal}</div>
+        <div class="ra-summary-label">Static</div>
+        <div class="ra-summary-sub">Static analysis</div>
+      </div>
+      <div class="ra-summary-card ${buildOk ? 'card-ok' : 'card-err'}">
+        <div class="ra-summary-value">${buildOk ? '✓' : '✗'}</div>
+        <div class="ra-summary-label">Build</div>
+        <div class="ra-summary-sub">${timing ? `${(timing.total_s||0).toFixed(0)}s total` : '-'}</div>
+      </div>
+    </div>`;
+
+    // trend timeline
+    let trendHtml = '';
+    if (allReanalyseReports.length > 1) {
+      const maxV = Math.max(...allReanalyseReports.map(r => r.total_violations), 1);
+      const bars = allReanalyseReports.map(r => {
+        const cur    = r.run_id === runId;
+        const height = Math.max(6, Math.round((r.total_violations / maxV) * 56));
+        const label  = r.run_id.replace('reanalise_','').replace(/T\d{6}/,'').replace('_','·');
+        return `<div class="ra-tl-item${cur ? ' current' : ''}">
+          <div class="ra-tl-count">${r.total_violations}</div>
+          <div class="ra-tl-bar" style="height:${height}px"></div>
+          <div class="ra-tl-label" title="${escHtml(r.run_id)}">${escHtml(label)}</div>
+        </div>`;
+      }).join('');
+      trendHtml = `<div class="rv-section">
+        <div class="rv-section-title">Correction trend</div>
+        <div class="ra-trend">${bars}</div>
+      </div>`;
+    }
+
+    // ATF violations grouped by check
+    let atfHtml = '';
+    if (atfIssuesAll.length > 0) {
+      const byCheck = {};
+      for (const iss of atfIssuesAll) {
+        const key = iss.check || 'Unknown';
+        (byCheck[key] = byCheck[key] || []).push(iss);
+      }
+      atfHtml = '<div class="rv-section"><div class="rv-section-title">ATF violations</div>';
+      for (const [check, issues] of Object.entries(byCheck)) {
+        const rows = issues.map(iss => {
+          const m = resolveAtfBounds(iss.message || '');
+          return `<div class="ra-issue-row">
+            <div class="ra-issue-icon">${escHtml(m.icon)}</div>
+            <div class="ra-issue-main">
+              <div class="ra-issue-composable">${escHtml(m.composable)}</div>
+              <div class="ra-issue-msg">${escHtml(iss.message || '')}</div>
+            </div>
+            ${m.pattern ? `<div class="ra-issue-coords">${escHtml(m.pattern)}</div>` : ''}
+          </div>`;
+        }).join('');
+        atfHtml += `<div class="ra-check-group">
+          <div class="ra-check-header">
+            <span class="ra-check-name">${escHtml(check)}</span>
+            <span class="ra-check-badge ra-check-atf">${issues.length}×</span>
+          </div>${rows}
+        </div>`;
+      }
+      atfHtml += '</div>';
+    }
+
+    // Lint / Static violations
+    let lintHtml = '';
+    const allLintStatic = [
+      ...lintIssuesAll.map(i => ({ ...i, _type: 'lint' })),
+      ...staticIssuesAll.map(i => ({ ...i, _type: 'static' })),
+    ];
+    if (allLintStatic.length > 0) {
+      lintHtml = '<div class="rv-section"><div class="rv-section-title">Lint / Static violations</div>';
+      const rows = allLintStatic.map(iss => {
+        const badge = iss._type === 'lint'
+          ? '<span class="ra-check-badge ra-check-lint">LINT</span>'
+          : '<span class="ra-check-badge ra-check-static">STATIC</span>';
+        return `<div class="ra-issue-row">
+          <div class="ra-issue-icon">⚠</div>
+          <div class="ra-issue-main">
+            <div class="ra-issue-composable">${escHtml(iss.id || '')} — line ${escHtml(String(iss.line || '?'))}</div>
+            <div class="ra-issue-msg">${escHtml(iss.message || '')}</div>
+          </div>
+          <div class="ra-issue-coords">${badge}</div>
+        </div>`;
+      }).join('');
+      lintHtml += `<div class="ra-check-group">${rows}</div></div>`;
+    }
+
+    // No violations
+    const noVioHtml = (atfTotal + lintTotal + staticTotal === 0)
+      ? `<div class="rv-section"><div style="text-align:center;padding:24px;background:var(--input-bg);border:1px solid #1a4a2e;border-radius:10px;color:var(--accent-g);font-size:0.86rem;font-weight:600;">✓ No violations detected</div></div>`
+      : '';
+
+    // Timing bar
+    let timingHtml = '';
+    if (timing) {
+      timingHtml = `<div class="rv-section">
+        <div class="rv-section-title">Execution time</div>
+        <div class="rv-timing" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+          <div class="rv-timing-item"><span class="rv-timing-label">Build</span><span class="rv-timing-value">${(timing.build_s||0).toFixed(1)}s</span></div>
+          <div class="rv-timing-item"><span class="rv-timing-label">Lint</span><span class="rv-timing-value">${(timing.lint_s||0).toFixed(1)}s</span></div>
+          ${timing.atf_s ? `<div class="rv-timing-item"><span class="rv-timing-label">ATF</span><span class="rv-timing-value">${timing.atf_s.toFixed(1)}s</span></div>` : ''}
+          <div class="rv-timing-item total"><span class="rv-timing-label">Total</span><span class="rv-timing-value">${timing.total_s.toFixed(1)}s</span></div>
+        </div>
+      </div>`;
+    }
+
+    // Code toggle
+    let codeHtml = '';
+    for (const entry of Object.values(llms)) {
+      if (entry.generated_code) {
+        codeHtml = `<div class="rv-section">
+          <div class="rv-section-title">Analyzed code</div>
+          <button class="rv-code-toggle" onclick="toggleCode(this)">
+            <span>View code (${entry.generated_code.split('\n').length} lines)</span>
+            <span class="rv-code-arrow">▼</span>
+          </button>
+          <div class="rv-code-block">${escHtml(entry.generated_code)}</div>
+        </div>`;
+        break;
+      }
+    }
+
+    document.getElementById('reportContent').innerHTML = `
+      <div style="padding:20px 24px;">
+        <div style="margin-bottom:18px;">
+          <div style="font-size:0.72rem;color:var(--muted);font-family:monospace;">${escHtml(runId)}</div>
+          <div style="font-size:0.72rem;color:#808d9f;margin-top:2px;">${escHtml(ts)}</div>
+        </div>
+        ${summaryHtml}
+        ${trendHtml}
+        ${noVioHtml}
+        ${atfHtml}
+        ${lintHtml}
+        ${timingHtml}
+        ${codeHtml}
+      </div>`;
+
+    showReportView();
+    document.getElementById('downloadBtn').style.display = '';
+    document.getElementById('downloadJsonBtn').style.display = '';
+  }
+
+  // ── Check descriptions ───────────────────────────────────────────────────────
+  const CHECK_DESCRIPTIONS = {
+    SpeakableTextPresentCheck:        { title: 'Missing speakable text',          detail: 'Interactive or focusable element with no text TalkBack can announce. Blind users will not know what the element does.' },
+    TouchTargetSizeCheck:             { title: 'Touch target too small',          detail: 'Interactive element smaller than 48×48 dp. Users with motor impairments may not be able to activate it accurately.' },
+    TextContrastCheck:                { title: 'Insufficient text contrast',      detail: 'Contrast ratio below 4.5:1 (WCAG AA). Users with low vision may not be able to read the text.' },
+    ComposeIconNullContentDescription:{ title: 'Icon without accessible description', detail: 'Icon() with contentDescription = null and no other accessible label. Screen readers skip it or announce it generically.' },
+    ComposeTextFieldMissingLabel:     { title: 'Text field without label',        detail: 'TextField/OutlinedTextField without a label parameter. The purpose of the field is not conveyed to screen readers.' },
+  };
+
+  function checkMeta(id) {
+    return CHECK_DESCRIPTIONS[id] || { title: id, detail: 'Accessibility violation detected.' };
+  }
+
+  // ── Download report ──────────────────────────────────────────────────────────
+  function downloadReport() {
+    if (!currentReportData || !selectedFilename) return;
+    const data = currentReportData;
+    const ts   = data.timestamp ? new Date(data.timestamp).toLocaleString('en-US') : '-';
+    const llms = data.llms || {};
+
+    let totalV = 0;
+    for (const e of Object.values(llms))
+      if (e.status === 'success')
+        totalV += (e.accessibility_issues?.total || 0) + (e.static_issues?.total || 0) + (e.atf_issues?.total || 0);
+
+    const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    // ── LLM sections ──
+    let llmSections = '';
+    for (const [llm, entry] of Object.entries(llms)) {
+      const lintIssues   = entry.accessibility_issues?.issues || [];
+      const staticIssues = entry.static_issues?.issues        || [];
+      const atfIssues    = entry.atf_issues?.issues           || [];
+      const total = lintIssues.length + staticIssues.length + atfIssues.length;
+      const t = entry.timing || {};
+
+      let statusBadge = entry.status === 'success'
+        ? (total === 0 ? '<span class="badge badge-ok">No violations</span>' : `<span class="badge badge-warn">${total} violation${total>1?'s':''}</span>`)
+        : `<span class="badge badge-err">${esc(entry.status)}</span>`;
+
+      // Timing row
+      let timingRow = '';
+      if (t.total_s) {
+        timingRow = `<div class="timing-bar">
+          <div class="t-item"><div class="t-label">Generation</div><div class="t-val">${(t.generation_s||0).toFixed(1)}s</div></div>
+          <div class="t-item"><div class="t-label">Build</div><div class="t-val">${(t.build_s||0).toFixed(1)}s</div></div>
+          <div class="t-item"><div class="t-label">Lint</div><div class="t-val">${(t.lint_s||0).toFixed(1)}s</div></div>
+          ${t.atf_s ? `<div class="t-item"><div class="t-label">ATF</div><div class="t-val">${t.atf_s.toFixed(1)}s</div></div>` : ''}
+          <div class="t-item t-total"><div class="t-label">Total</div><div class="t-val">${t.total_s.toFixed(1)}s</div></div>
+        </div>`;
+      }
+
+      // Violations table
+      let rows = '';
+      for (const i of lintIssues) {
+        const m = checkMeta(i.id);
+        rows += `<tr><td><span class="tag tag-lint">LINT</span></td><td><strong>${esc(i.id)}</strong><br><small>${esc(m.title)}</small></td><td>${esc(m.detail)}</td><td>${esc(i.message||'')}</td><td class="loc">Line ${esc(i.line||'?')}</td></tr>`;
+      }
+      for (const i of staticIssues) {
+        const m = checkMeta(i.id);
+        rows += `<tr><td><span class="tag tag-static">STATIC</span></td><td><strong>${esc(i.id)}</strong><br><small>${esc(m.title)}</small></td><td>${esc(m.detail)}</td><td>${esc(i.message||'')}</td><td class="loc">Line ${esc(i.line||'?')}</td></tr>`;
+      }
+      for (const i of atfIssues) {
+        const m = checkMeta(i.check);
+        rows += `<tr><td><span class="tag tag-atf">ATF</span></td><td><strong>${esc(i.check)}</strong><br><small>${esc(m.title)}</small></td><td>${esc(m.detail)}</td><td>${esc(i.message||'')}</td><td class="loc">${esc(i.bounds||'')}</td></tr>`;
+      }
+
+      const violationsTable = rows
+        ? `<table><thead><tr><th>Type</th><th>Check</th><th>What it means</th><th>Message</th><th>Location</th></tr></thead><tbody>${rows}</tbody></table>`
+        : '<p class="no-v">No violations detected.</p>';
+
+      // Code block
+      const codeBlock = entry.generated_code
+        ? `<details><summary>Generated code (${entry.generated_code.split('\n').length} lines)</summary><pre class="code">${esc(entry.generated_code)}</pre></details>`
+        : '';
+
+      llmSections += `
+        <div class="llm-section">
+          <div class="llm-header"><h3>${esc(llm)}</h3>${statusBadge}</div>
+          ${timingRow}
+          <h4>Detected violations</h4>
+          ${violationsTable}
+          ${codeBlock}
+        </div>`;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Melodie A11Y — ${esc(data.run_id || selectedFilename)}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #1a202c; background: #fff; padding: 40px 48px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; font-weight: 800; color: #0f172a; }
+  h1 span { color: #2563eb; }
+  h2 { font-size: 1.1rem; font-weight: 400; color: #64748b; margin-top: 4px; margin-bottom: 28px; }
+  h3 { font-size: 1rem; font-weight: 700; color: #0f172a; }
+  h4 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin: 18px 0 8px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .meta-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; }
+  .meta-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 2px; }
+  .meta-value { font-size: 0.9rem; font-weight: 700; color: #0f172a; }
+  .prompt-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; font-size: 0.85rem; color: #475569; line-height: 1.7; white-space: pre-wrap; margin-bottom: 32px; }
+  .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin: 32px 0 18px; }
+  .llm-section { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .llm-header { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+  .llm-header h3 { flex: 1; }
+  .badge { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+  .badge-ok   { background: #dcfce7; color: #15803d; }
+  .badge-warn { background: #fef9c3; color: #a16207; }
+  .badge-err  { background: #fee2e2; color: #dc2626; }
+  .timing-bar { display: flex; border-bottom: 1px solid #e2e8f0; }
+  .t-item { flex: 1; padding: 10px 8px; text-align: center; border-right: 1px solid #e2e8f0; }
+  .t-item:last-child { border-right: none; }
+  .t-total { background: #eff6ff; }
+  .t-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 2px; }
+  .t-val { font-size: 0.88rem; font-weight: 700; color: #1e40af; font-family: monospace; }
+  .t-item:not(.t-total) .t-val { color: #0f172a; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 0; }
+  th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; color: #374151; line-height: 1.5; }
+  td small { color: #64748b; font-size: 0.75em; }
+  tr:last-child td { border-bottom: none; }
+  .loc { font-family: monospace; font-size: 0.75rem; color: #94a3b8; white-space: nowrap; }
+  .tag { font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+  .tag-lint   { background: #dcfce7; color: #15803d; }
+  .tag-static { background: #d1fae5; color: #065f46; }
+  .tag-atf    { background: #dbeafe; color: #1d4ed8; }
+  .no-v { padding: 12px 18px; font-size: 0.8rem; color: #64748b; }
+  details { border-top: 1px solid #e2e8f0; }
+  summary { padding: 10px 18px; font-size: 0.78rem; font-weight: 600; color: #475569; cursor: pointer; user-select: none; }
+  summary:hover { background: #f8fafc; }
+  .code { padding: 16px 18px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.72rem; line-height: 1.65; color: #0f172a; background: #f8fafc; white-space: pre; overflow-x: auto; border-top: 1px solid #e2e8f0; counter-reset: line; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 0.72rem; color: #94a3b8; text-align: center; line-height: 1.9; }
+  @media print { body { padding: 20px 24px; } .llm-section { break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<h1>Melodie <span>A11Y</span></h1>
+<h2>Accessibility Report — ${esc(data.run_id || selectedFilename)}</h2>
+
+<div class="meta-grid">
+  <div class="meta-item"><div class="meta-label">Run ID</div><div class="meta-value">${esc(data.run_id || '-')}</div></div>
+  <div class="meta-item"><div class="meta-label">Date</div><div class="meta-value">${esc(ts)}</div></div>
+  <div class="meta-item"><div class="meta-label">LLMs tested</div><div class="meta-value">${Object.keys(llms).join(', ') || '-'}</div></div>
+  <div class="meta-item"><div class="meta-label">Total violations</div><div class="meta-value">${totalV}</div></div>
+</div>
+
+${data.prompt ? `<div class="section-title">Prompt used</div><div class="prompt-box">${esc(data.prompt)}</div>` : ''}
+
+<div class="section-title">Results per LLM</div>
+${llmSections}
+
+<footer>
+  <div><strong>Melodie A11Y</strong></div>
+  <div style="font-size:0.65rem;color:#cbd5e1;margin-top:2px">Free academic use with attribution &nbsp;·&nbsp; Commercial use prohibited without permission &nbsp;·&nbsp; Generated on ${new Date().toLocaleString('en-US')}</div>
+</footer>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = selectedFilename.replace('.json', '_report.html');
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadReportJson() {
+    if (!currentReportData) return;
+    const blob = new Blob([JSON.stringify(currentReportData, null, 2)], { type: 'application/json; charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = selectedFilename || 'melodie_report.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Tab switching ────────────────────────────────────────────────────────────
+  let activeTab = 'correction';
+  let selectedCorrectedFile = null;
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tabCorrection').style.display  = tab === 'correction' ? 'contents' : 'none';
+    document.getElementById('tabReanalyse').style.display   = tab === 'reanalyse'  ? 'flex'     : 'none';
+    document.getElementById('tabBtnCorrection').classList.toggle('active', tab === 'correction');
+    document.getElementById('tabBtnReanalyse').classList.toggle('active',  tab === 'reanalyse');
+    if (tab === 'reanalyse') {
+      loadCorrectedFiles();
+      loadReanalyseReports();
+    }
+  }
+
+  // ── Corrected files list ──────────────────────────────────────────────────────
+  async function loadCorrectedFiles() {
+    try {
+      const r = await fetch('/api/corrected-files');
+      const data = await r.json();
+      renderCorrectedFiles(data.files || []);
+    } catch (e) {
+      document.getElementById('correctedList').innerHTML =
+        '<div style="font-size:0.74rem;color:#f87171;text-align:center;padding:8px;">Failed to load</div>';
+    }
+  }
+
+  function renderCorrectedFiles(files) {
+    const container = document.getElementById('correctedList');
+    if (files.length === 0) {
+      container.innerHTML =
+        '<div style="font-size:0.74rem;color:var(--muted);text-align:center;padding:12px 0;">No corrected files found.<br>Run a correction first.</div>';
+      document.getElementById('reanalyseBtn').disabled = true;
+      return;
+    }
+    container.innerHTML = '';
+    for (const f of files) {
+      const div = document.createElement('div');
+      div.className = 'corrected-item';
+      div.dataset.name = f.name;
+      div.title = f.source_report ? `Source: ${f.source_report}` : f.name;
+      const origin = f.source_report ? `<span class="corrected-item-origin">from ${escHtml(f.source_report.replace(/^report_/, '').replace('.json', ''))}</span>` : '';
+      div.innerHTML = `<span class="corrected-item-main"><span class="corrected-item-name">${escHtml(f.label || f.name)}</span>${origin}</span>
+        <span class="corrected-item-size" title="Last modified">${escHtml(f.modified_at || '')} · ${f.size_kb} KB</span>
+        <button type="button" class="corrected-rename" aria-label="Rename ${escHtml(f.label || f.name)}" title="Rename">✎</button>`;
+      div.addEventListener('click', e => {
+        if (e.target.closest('.corrected-rename, .corrected-rename-input')) return;
+        document.querySelectorAll('.corrected-item').forEach(i => i.classList.remove('active'));
+        div.classList.add('active');
+        selectedCorrectedFile = f.name;
+        document.getElementById('reanalyseBtn').disabled = false;
+      });
+      div.querySelector('.corrected-rename').addEventListener('click', () => startRename(div, f));
+      container.appendChild(div);
+    }
+    const target = wantCorrected ? [...container.querySelectorAll('.corrected-item')].find(d => d.dataset.name === wantCorrected) : null;
+    wantCorrected = null;
+    (target || container.querySelector('.corrected-item'))?.click();
+  }
+
+  // inline rename of a corrected file (Enter saves, Esc cancels)
+  function startRename(div, f) {
+    const nameEl = div.querySelector('.corrected-item-name');
+    const input = document.createElement('input');
+    input.className = 'corrected-rename-input';
+    input.value = f.label || f.name.replace(/\.kt$/, '');
+    input.setAttribute('aria-label', 'New name for the corrected file');
+    nameEl.replaceWith(input);
+    input.focus(); input.select();
+    let done = false;
+    const finish = async save => {
+      if (done) return; done = true;
+      const label = input.value.trim();
+      if (save && label && label !== f.label) {
+        try {
+          const r = await fetch('/api/corrected-files/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name, label }) });
+          if (r.ok) { const res = await r.json(); if (selectedCorrectedFile === f.name) selectedCorrectedFile = res.name; wantCorrected = res.name; }
+        } catch (_) { /* keep the old name */ }
+      }
+      loadCorrectedFiles();
+    };
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+    input.addEventListener('blur', () => finish(true));
+  }
+
+  // ── Re-analyse reports list ───────────────────────────────────────────────────
+  async function loadReanalyseReports() {
+    try {
+      const r = await fetch('/api/reanalise-reports');
+      const data = await r.json();
+      renderReanalyseReports(data.reports || []);
+    } catch (e) { /* ignore */ }
+  }
+
+  function renderReanalyseReports(reports) {
+    allReanalyseReports = reports;
+    const container = document.getElementById('reanalyseReportList');
+    if (reports.length === 0) {
+      container.innerHTML =
+        '<div style="font-size:0.74rem;color:var(--muted);text-align:center;padding:8px;">None yet</div>';
+      return;
+    }
+    container.innerHTML = '';
+    for (const rep of reports) {
+      const vTag = rep.total_violations > 0
+        ? `<span class="r-tag r-tag-warn">${rep.total_violations} violation${rep.total_violations > 1 ? 's' : ''}</span>`
+        : `<span class="r-tag r-tag-v0">no violations</span>`;
+      const div = document.createElement('div');
+      div.className = 'report-item';
+      div.dataset.filename = rep.filename;
+      div.title = rep.filename;
+      div.innerHTML = `<div class="report-item-id">${escHtml(rep.label || rep.run_id)}${rep.label ? `<span class="report-item-run">${escHtml(rep.run_id.replace(/^reanalise_/, ''))}</span>` : ''}</div><div class="report-item-meta">${vTag}</div>`;
+      div.addEventListener('click', async () => {
+        document.querySelectorAll('#reanalyseReportList .report-item').forEach(i => i.classList.remove('active'));
+        div.classList.add('active');
+        try {
+          const r = await fetch(`/api/reports/${encodeURIComponent(rep.filename)}`);
+          if (!r.ok) throw new Error(r.statusText);
+          const data = await r.json();
+          currentReportData = data;
+          selectedFilename = rep.filename;
+          renderReanalyseView(data);
+        } catch (e) { /* ignore */ }
+      });
+      container.appendChild(div);
+    }
+    const target = wantReanalysis ? [...container.querySelectorAll('.report-item')].find(d => d.dataset.filename === wantReanalysis) : null;
+    wantReanalysis = null;
+    (target || container.querySelector('.report-item'))?.click();
+  }
+
+  // ── Run re-analysis ───────────────────────────────────────────────────────────
+  async function runReanalyse() {
+    if (running || !selectedCorrectedFile) return;
+    running = true;
+
+    const btn = document.getElementById('reanalyseBtn');
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    setStatus('running', 'Re-analyzing');
+
+    const outputEl = document.getElementById('output');
+    document.getElementById('emptyState').style.display  = 'none';
+    document.getElementById('reportView').style.display  = 'none';
+    outputEl.style.display = '';
+    document.getElementById('statusBadge').style.display     = '';
+    document.getElementById('clearBtn').style.display        = '';
+    document.getElementById('outputClearBtn').style.display  = '';
+    outputEl.innerHTML = '';
+    appendLine(`File: ${selectedCorrectedFile}`, 'info');
+    appendLine('Starting re-analysis (build + Lint + ATF)...', 'info');
+    appendLine('', 'empty');
+
+    try {
+      const resp = await fetch('/api/reanalyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kt_file: selectedCorrectedFile }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        appendLine(`ERROR: ${err.detail || resp.statusText}`, 'err');
+        setStatus('error', 'Error');
+        running = false;
+        btn.disabled = false;
+        btn.textContent = 'Start re-analysis';
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        for (const part of parts) {
+          if (!part.startsWith('data:')) continue;
+          const text = part.slice(5).trim();
+          if (text === '__DONE__') {
+            appendLine('', 'empty');
+            appendLine('Re-analysis finished.', 'ok');
+            setStatus('done', 'Done');
+            running = false;
+            btn.disabled = false;
+            btn.textContent = 'Start re-analysis';
+            loadReanalyseReports();
+            return;
+          }
+          if (text.startsWith('REANALYSIS_REPORT:')) { wantReanalysis = text.slice(18); appendLine(`Final report: ${wantReanalysis}`, 'ok');
+ continue; }
+          appendLine(text);
+        }
+      }
+    } catch (e) {
+      appendLine(`Connection error: ${e.message}`, 'err');
+      setStatus('error', 'Error');
+    } finally {
+      running = false;
+      btn.disabled = false;
+      btn.textContent = 'Start re-analysis';
+    }
+  }
+
+  loadReportList();
+  loadCorrectorModels();
+
+  // Expose onclick handlers globally so they survive IIFE wrapping by SPA router
+  window.switchTab       = switchTab;
+  window.runCorrection   = runCorrection;
+  window.runReanalyse    = runReanalyse;
+  window.downloadReport  = downloadReport;
+  window.downloadReportJson = downloadReportJson;
+  window.showReportView  = showReportView;
+  window.clearOutput     = clearOutput;
+  window.toggleCode      = toggleCode;
+</script>
+<script src="/static/js/router.js"></script>
+</body>
+</html>

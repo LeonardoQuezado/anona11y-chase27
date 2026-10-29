@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>Melodie A11Y</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #06050d;
+      --surface: #0f0d1c;
+      --surface2:#151228;
+      --border:  #1e1a33;
+      --border2: #2d2550;
+      --accent:  #a855f7;
+      --accent2: #c084fc;
+      --accent3: #f472b6;
+      --accent4: #fb923c;
+      --accent5: #818cf8;
+      --accent6: #22d3ee;
+      --text:    #e8e2f8;
+      --muted:   #9187ac;
+      --muted2:  #9488b4;
+    }
+
+    :root { --mono: 'SF Mono', 'Fira Mono', 'Consolas', monospace; }
+
+    html {
+      background: var(--bg);
+      font-size: 112.5%;
+      scrollbar-width: thin;
+      scrollbar-color: #2d2550 transparent;
+    }
+    body {
+      font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+      color: var(--text);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Nav ── */
+    nav { font-size: medium; }
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center;
+      padding: 0 60px;
+      height: 68px;
+      background: rgba(6,5,13,0.85); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+    .nav-link {
+      font-size: 0.82em; color: var(--muted2);
+      text-decoration: none; transition: color 0.15s;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      line-height: 1;
+      display: inline-flex; align-items: center;
+    }
+    .nav-link:hover { color: var(--text); }
+    .nav-cta {
+      margin-left: 28px;
+      background: linear-gradient(135deg, #6d28d9, #a855f7);
+      color: #fff !important; padding: 8px 20px;
+      border-radius: 8px; font-weight: 600;
+      font-size: 0.82em !important;
+      letter-spacing: 0.02em;
+      transition: opacity 0.15s, transform 0.15s !important;
+    }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* ── Page body ── */
+    .page { position: relative; z-index: 1; flex: 1; overflow-y: auto; }
+
+    /* ── Hero: text on the left, giant Melodie on the right ── */
+    .landing .hero {
+      position: relative; overflow: clip;
+      min-height: calc(100vh - 68px);
+      display: flex; align-items: center;
+      padding: 72px clamp(24px, 7vw, 140px) 88px;
+    }
+    .landing .hero-text { position: relative; z-index: 2; max-width: min(600px, 40vw); }
+    /* readability scrim: keeps the copy above WCAG AA over the moving code background */
+    .landing .hero-text::before {
+      content: ''; position: absolute; z-index: -1; inset: -70px -90px -70px -140px; pointer-events: none;
+      background: radial-gradient(closest-side, rgba(6,5,13,0.78), rgba(6,5,13,0.5) 62%, rgba(6,5,13,0));
+    }
+
+    .landing .hero-eyebrow {
+      font-size: 0.72rem; font-weight: 600;
+      font-family: var(--mono);
+      letter-spacing: 0.3em; text-transform: uppercase;
+      color: #cfaefd;
+      margin-bottom: 30px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .landing .hero-eyebrow::before {
+      content: '';
+      display: inline-block; width: 36px; height: 2px; flex-shrink: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      border-radius: 2px;
+    }
+
+    .landing .hero-headline {
+      font-size: clamp(2.3rem, 3.4vw, 3.6rem);
+      font-weight: 900; line-height: 1.1;
+      letter-spacing: -0.035em;
+      color: #f5f0ff;
+      margin-bottom: 26px;
+    }
+    .landing .hero-headline .grad-a, .landing .hero-headline .grad-b {
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .landing .hero-headline .grad-a { background-image: linear-gradient(90deg, #c084fc 0%, #f472b6 100%); }
+    .landing .hero-headline .grad-b { background-image: linear-gradient(90deg, #e879f9 0%, #c084fc 100%); }
+    .landing .hero-sub {
+      display: block; margin-top: 14px;
+      font-size: 0.52em; font-weight: 400; letter-spacing: -0.01em;
+      color: #cdc5e6;
+    }
+
+    .landing .hero-body {
+      font-size: 1rem; color: #b3a9d2; line-height: 1.85;
+      max-width: 520px; margin-bottom: 40px;
+    }
+
+    .landing .hero-actions { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+
+    /* Melodie mark (decorative, eyes follow the pointer) */
+    .landing .hero-mark {
+      position: absolute; z-index: 1; pointer-events: none;
+      right: 1.5vw; top: 50%; transform: translateY(-50%);
+      width: min(54vw, calc((100vh - 110px) * 1.035));
+    }
+    /* dims the code background around her so the eyes stand out */
+    .landing .hero-mark::before {
+      content: ''; position: absolute; inset: 2% 4%; border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(6,5,13,0.82), rgba(6,5,13,0.55) 58%, rgba(6,5,13,0));
+    }
+    .landing .hero-mark .mel-mark { position: relative; display: block; width: 100%; height: auto; }
+    /* the orbit is its own layer so the browser can spin it on the GPU; it turns around the ring's centre */
+    .landing .hero-mark .mel-orbit {
+      position: absolute; top: 0; left: 0; width: 100%; height: auto;
+      transform-origin: 49.53% 48.05%; will-change: transform;
+      animation: mel-orbit-spin 80s linear infinite;
+    }
+    @keyframes mel-orbit-spin { to { transform: rotate(360deg); } }
+
+    /* entrance: the mark fades in, the orbit sweeps open from the top star, the stars pop; the script then opens the eyes */
+    .landing .hero-mark .mel-mark { animation: mel-in 0.9s ease-out both; }
+    @keyframes mel-in { from { opacity: 0; transform: scale(0.96); } }
+    .landing .hero-mark .orb-sweep { animation: orb-sweep 1.5s cubic-bezier(0.45, 0, 0.25, 1) 0.25s both; }
+    @keyframes orb-sweep { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+    /* stars twinkle slowly (well under 3 flashes per second) */
+    .orb-star { transform-box: fill-box; transform-origin: center; }
+    .landing .hero-mark .orb-star { animation: orb-pop 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) both, orb-twinkle 3.6s ease-in-out infinite; }
+    .landing .hero-mark .orb-star-1 { animation-delay: 0.55s, 1.3s; }
+    .landing .hero-mark .orb-star-2 { animation-delay: 1.35s, 2.1s; animation-duration: 0.7s, 4.4s; }
+    @keyframes orb-pop { from { transform: scale(0); opacity: 0; } }
+    @keyframes orb-twinkle { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.82); opacity: 0.7; } }
+    .landing .hero-mark .mel-body { position: relative; transform-origin: 49.53% 48.05%; }
+    .landing .hero-mark .mel-notes { position: absolute; inset: 0; pointer-events: none; }
+    .landing .hero-mark .mel-z { position: absolute; font-family: var(--mono); font-weight: 800; line-height: 1; color: #d8b4fe;
+      text-shadow: 0 0 12px rgba(192,132,252,0.8); pointer-events: none; }
+    .landing .hero-mark .mel-drool-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+    /* the big star starts the bug game: pixel ripples glow in its centre */
+    .landing .hero-mark .mel-orbit .orb-star-1 { pointer-events: auto; cursor: pointer; }
+    .landing .hero-mark .orb-star-waves rect { opacity: 0.15; animation: star-ripple 2.4s ease-in-out infinite; animation-delay: calc(var(--d) * 1.2s); }
+    @keyframes star-ripple { 0%, 100% { opacity: 0.12; } 35% { opacity: 0.95; } 60% { opacity: 0.35; } }
+    .landing .hero-mark .bg-start {
+      position: absolute; left: 49.5%; top: 2%; translate: -50% 0; pointer-events: auto;
+      padding: 8px 16px; border-radius: 999px; border: 1px solid #c084fc; background: rgba(12,10,26,0.92); color: #f5f0ff;
+      font: 600 0.8rem var(--mono); white-space: nowrap; cursor: pointer;
+      clip-path: inset(50%); opacity: 0;                     /* hidden until it receives keyboard focus */
+    }
+    .landing .hero-mark .bg-start:focus-visible { clip-path: none; opacity: 1; outline: 2px solid #f5f0ff; outline-offset: 3px; }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+    /* ── bug game ── */
+    .landing .hero-text { transition: opacity 0.45s ease, visibility 0.45s; }
+    .landing .hero.is-gaming .hero-text { opacity: 0; visibility: hidden; }
+    .bug-game {
+      position: absolute; z-index: 3; left: clamp(24px, 6vw, 120px); top: 50%; translate: 0 -50%;
+      width: min(620px, 44vw, calc(100vh - 150px)); aspect-ratio: 1 / 1.06;
+      display: flex; flex-direction: column; border-radius: 22px; overflow: hidden;
+      background: radial-gradient(120% 90% at 50% 100%, rgba(76,29,149,0.38), rgba(8,6,20,0.97) 62%);
+      border: 1px solid #3b2a6b; box-shadow: 0 0 0 1px rgba(168,85,247,0.15), 0 30px 120px rgba(0,0,0,0.6), 0 0 80px rgba(168,85,247,0.18);
+      opacity: 0; scale: 0.96; transition: opacity 0.4s ease, scale 0.4s ease;
+      font-family: var(--mono); color: #e8e2f8;
+    }
+    .bug-game.is-open { opacity: 1; scale: 1; }
+    .bug-game:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 3px; }
+    .bg-hud { display: flex; align-items: center; gap: 14px; padding: 10px 14px; font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: #cdc5e6; border-bottom: 1px solid #2a1f4d; }
+    .bg-stat { display: flex; flex-direction: column; gap: 2px; }
+    .bg-stat b { color: #f5f0ff; font-size: 1rem; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+    .bg-actions { margin-left: auto; display: flex; gap: 8px; }
+    .bg-actions button, .bg-paused button, .bg-end-actions button {
+      padding: 7px 14px; border-radius: 999px; cursor: pointer; font: 600 0.75rem var(--mono); color: #f5f0ff;
+      background: rgba(168,85,247,0.12); border: 1px solid #6d4bb8; transition: background 0.15s;
+    }
+    .bg-actions button:hover, .bg-paused button:hover, .bg-end-actions button:hover { background: rgba(168,85,247,0.28); }
+    .bug-game button:focus-visible { outline: 2px solid #f5f0ff; outline-offset: 2px; }
+    /* the claw button doubles as its charge meter */
+    .bg-actions .bg-claw { position: relative; overflow: hidden; isolation: isolate; min-width: 82px; }
+    .bg-claw-fill { position: absolute; inset: 0; z-index: -1; transform-origin: left; transform: scaleX(var(--fill, 0));
+      background: linear-gradient(90deg, rgba(124,58,237,0.55), rgba(232,121,249,0.7)); transition: transform 0.25s ease; }
+    .bg-actions .bg-claw:disabled { cursor: default; color: #cdc5e6; }
+    .bg-actions .bg-claw:disabled:hover { background: rgba(168,85,247,0.12); }
+    .bg-actions .bg-claw.is-ready { color: #fff; border-color: #f0abfc; box-shadow: 0 0 16px rgba(232,121,249,0.6); animation: claw-ready 1.4s ease-in-out infinite; }
+    @keyframes claw-ready { 50% { box-shadow: 0 0 26px rgba(232,121,249,0.9); } }
+    .bg-field {
+      position: relative; flex: 1; min-height: 0;
+      background-image: linear-gradient(rgba(168,85,247,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.06) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .bg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: none; touch-action: none; display: block; }
+    .bg-paused { position: absolute; inset: 0; display: grid; place-content: center; gap: 12px; text-align: center; background: rgba(6,5,13,0.7); }
+    .bg-paused[hidden] { display: none; }
+    .bg-paused p { font-size: 1.3rem; font-weight: 800; color: #f5f0ff; }
+    /* Melodie's shop between waves */
+    .bg-shop { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px; overflow-y: auto;
+      background: rgba(6,5,13,0.93); backdrop-filter: blur(4px); }
+    .bg-shop[hidden] { display: none; }
+    .bg-shop-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .bg-shop-head h2 { font-size: 1.1rem; color: #f5f0ff; }
+    .bg-credits { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #cdc5e6; }
+    .bg-credits b { font-size: 1.05rem; color: #fde68a; letter-spacing: 0; margin-left: 6px; }
+    .bg-shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .bg-up { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: rgba(15,13,28,0.9);
+      border: 1px solid color-mix(in srgb, var(--c) 35%, #2a1f4d); }
+    .bg-up-top { display: flex; align-items: center; gap: 8px; }
+    .bg-up-top svg { width: 22px; height: 22px; color: var(--c); flex-shrink: 0; }
+    .bg-up-top h3 { font-size: 0.82rem; color: #f5f0ff; flex: 1; }
+    .bg-pips { display: flex; gap: 4px; }
+    .bg-pip { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--c); }
+    .bg-pip.is-on { background: var(--c); box-shadow: 0 0 6px var(--c); }
+    .bg-up-blurb { font-size: 0.68rem; color: #a99fc6; line-height: 1.45; }
+    .bg-up-next { font-size: 0.72rem; color: #e8e2f8; line-height: 1.45; flex: 1; }
+    .bg-shop .bg-buy { align-self: flex-start; padding: 6px 14px; border-radius: 999px; cursor: pointer; font: 700 0.72rem var(--mono);
+      color: #06050d; background: var(--c); border: 0; }
+    .bg-shop .bg-buy:disabled { cursor: default; color: #9283bc; background: rgba(139,123,184,0.15); }
+    .bg-shop .bg-buy:focus-visible, .bg-shop-go:focus-visible { outline: 2px solid #f5f0ff; outline-offset: 2px; }
+    .bg-shop-go { align-self: center; margin-top: 4px; padding: 10px 22px; border-radius: 999px; border: 0; cursor: pointer;
+      color: #fff; font: 700 0.85rem var(--mono); background: linear-gradient(135deg, #6d28d9, #a855f7); }
+    @media (max-width: 520px) { .bg-shop-grid { grid-template-columns: 1fr; } }
+
+    .bg-end {
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      text-align: center; padding: 22px; overflow-y: auto; background: rgba(6,5,13,0.88); backdrop-filter: blur(3px);
+    }
+    .bg-end[hidden] { display: none; }
+    .bg-end-rank { font-size: 3.2rem; font-weight: 900; line-height: 1; background: linear-gradient(135deg, #f0abfc, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .bg-end-rank[data-rank="S"] { background-image: linear-gradient(135deg, #fde68a, #f472b6); }
+    .bg-end h2 { font-size: 1.15rem; color: #f5f0ff; }
+    .bg-end-score { color: #cdc5e6; font-size: 0.85rem; }
+    .bg-end-stats { display: grid; grid-template-columns: repeat(4, auto); gap: 4px 18px; margin: 4px 0; }
+    .bg-end-stats div { display: flex; flex-direction: column; }
+    .bg-end-stats dt { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: #a99fc6; }
+    .bg-end-stats dd { font-size: 0.95rem; font-weight: 700; color: #f5f0ff; }
+    .bg-record { color: #fde68a; font-weight: 700; font-size: 0.85rem; }
+    .bg-top { list-style: none; font-size: 0.75rem; color: #cdc5e6; display: grid; gap: 2px; }
+    .bg-top li.is-mine { color: #f0abfc; font-weight: 700; }
+    .bg-top span { color: #9283bc; }
+    .bg-end-actions { display: flex; gap: 10px; margin-top: 6px; }
+    .bg-end-actions .bg-again { background: linear-gradient(135deg, #6d28d9, #a855f7); border-color: transparent; }
+    @media (max-width: 1200px) {
+      .bug-game { left: 50%; translate: -50% -50%; width: min(94vw, calc(100vh - 140px)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .landing .hero-mark .orb-star-waves rect { animation: none; opacity: 0.6; }
+      .bug-game, .landing .hero-text { transition: none; }
+      .bg-actions .bg-claw.is-ready { animation: none; }
+    }
+
+    /* off screen: everything pauses */
+    .landing .hero-mark.is-offscreen .mel-orbit, .landing .hero-mark.is-offscreen .orb-star { animation-play-state: paused; }
+    @media (prefers-reduced-motion: reduce) {
+      .landing .hero-mark .mel-orbit, .landing .hero-mark .mel-mark, .landing .hero-mark .orb-sweep, .landing .hero-mark .orb-star { animation: none; }
+    }
+
+    /* curved light streaks */
+    .landing .hero-lights { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; }
+
+    .landing .btn-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, #6d28d9, #a855f7);
+      color: #fff; text-decoration: none;
+      padding: 16px 32px; border-radius: 999px;
+      font-size: 1rem; font-weight: 700; letter-spacing: 0.01em;
+      box-shadow: 0 0 40px rgba(168,85,247,0.32), 0 4px 24px rgba(0,0,0,0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .landing .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 60px rgba(168,85,247,0.52), 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .landing .btn-ghost {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: #b3a9d2; text-decoration: none;
+      font-size: 0.95rem; font-weight: 500;
+      padding: 16px 4px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .landing .btn-ghost:hover { color: var(--text); border-color: var(--muted2); }
+    .landing .btn-ghost .arrow { transition: transform 0.15s; }
+    .landing .btn-ghost:hover .arrow { transform: translateX(4px); }
+
+    /* ── Footer ── */
+    footer {
+      position: relative; z-index: 1;
+      margin-top: 96px;
+      border-top: 1px solid var(--border);
+      padding: 28px 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .footer-left {
+      font-size: 0.78rem; color: var(--muted);
+      font-family: var(--mono); letter-spacing: 0.06em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .footer-left strong { color: var(--muted2); }
+    .footer-right {
+      display: flex; gap: 24px;
+    }
+    .footer-right a {
+      font-size: 0.75rem; color: var(--muted);
+      font-family: var(--mono); letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none; transition: color 0.15s;
+    }
+    .footer-right a:hover { color: var(--text); }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      nav { padding: 14px 24px; }
+      .landing .hero { min-height: auto; padding: 64px 24px 72px; }
+      .landing .hero-text { max-width: none; }
+      .landing .hero-mark { right: -8vw; top: 32px; transform: none; width: min(104vw, 560px); opacity: 0.3; }
+      .nav-links { display: none; }
+      footer { padding: 24px; flex-direction: column; align-items: flex-start; }
+    }
+    @media (max-width: 1200px) and (min-width: 901px) {
+      .landing .hero-text { max-width: 620px; }
+      .landing .hero-mark { right: -6vw; width: 68vw; opacity: 0.35; }
+    }
+  </style>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+</head>
+<body>
+
+<!-- Aurora -->
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="/static/logo-wordmark.png" alt="Melodie A11Y">
+  </a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link">Analysis</a>
+    <a href="/correcao"   class="nav-link">Correction</a>
+    <a href="/relatorios" class="nav-link">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"         class="nav-link">Log</a>
+    <a href="/teste"         class="nav-link">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+
+<div class="page landing">
+
+  <!-- Hero -->
+  <section class="hero">
+
+    <svg class="hero-lights" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="hl-a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c3aed" stop-opacity="0"/><stop offset="0.55" stop-color="#a855f7" stop-opacity="0.9"/><stop offset="1" stop-color="#c084fc" stop-opacity="0"/></linearGradient>
+        <linearGradient id="hl-b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6d28d9" stop-opacity="0"/><stop offset="0.5" stop-color="#8b5cf6" stop-opacity="0.85"/><stop offset="1" stop-color="#6d28d9" stop-opacity="0"/></linearGradient>
+        <filter id="hl-glow" x="-10%" y="-50%" width="120%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+      </defs>
+      <g fill="none">
+        <path vector-effect="non-scaling-stroke" d="M-40 250 C 180 190, 400 90, 640 -30" stroke="url(#hl-a)" stroke-width="8" opacity="0.35" filter="url(#hl-glow)"/>
+        <path vector-effect="non-scaling-stroke" d="M-40 250 C 180 190, 400 90, 640 -30" stroke="url(#hl-a)" stroke-width="1.6"/>
+        <path vector-effect="non-scaling-stroke" d="M-60 780 C 260 720, 520 790, 760 940" stroke="url(#hl-b)" stroke-width="8" opacity="0.3" filter="url(#hl-glow)"/>
+        <path vector-effect="non-scaling-stroke" d="M-60 780 C 260 720, 520 790, 760 940" stroke="url(#hl-b)" stroke-width="1.4"/>
+        <path vector-effect="non-scaling-stroke" d="M1180 40 C 1420 110, 1570 260, 1640 430" stroke="url(#hl-b)" stroke-width="1.2" opacity="0.7"/>
+        <path vector-effect="non-scaling-stroke" d="M1080 920 C 1360 860, 1540 720, 1640 560" stroke="url(#hl-a)" stroke-width="8" opacity="0.3" filter="url(#hl-glow)"/>
+        <path vector-effect="non-scaling-stroke" d="M1080 920 C 1360 860, 1540 720, 1640 560" stroke="url(#hl-a)" stroke-width="1.6"/>
+      </g>
+    </svg>
+
+    <div class="hero-mark">
+      <div class="mel-body" aria-hidden="true">
+<svg class="mel-orbit" viewBox="240 0 1060 1024" aria-hidden="true" focusable="false"><defs>
+    <linearGradient id="orb-l-arc" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="880">
+      <stop offset="0" stop-color="#e3459b"/><stop offset="0.6" stop-color="#d62f95"/><stop offset="1" stop-color="#9b1eb4"/>
+    </linearGradient>
+    <radialGradient id="orb-l-bead" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#ffb3dc"/><stop offset="0.35" stop-color="#f0479e"/><stop offset="1" stop-color="#b8136f"/>
+    </radialGradient>
+    <linearGradient id="orb-l-star" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f25bb4"/><stop offset="1" stop-color="#c026d3"/>
+    </linearGradient>
+    <linearGradient id="orb-l-cres" gradientUnits="userSpaceOnUse" x1="1221" y1="456" x2="864" y2="889">
+      <stop offset="0" stop-color="#8b2cf5"/><stop offset="0.6" stop-color="#6a14ec"/><stop offset="1" stop-color="#5310d8"/>
+    </linearGradient>
+    <filter id="orb-l-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
+    <mask id="orb-l-sweep" maskUnits="userSpaceOnUse" x="0" y="0" width="1536" height="1024"><circle class="orb-sweep" cx="765" cy="492" r="250" fill="none" stroke="#fff" stroke-width="520" pathLength="100" stroke-dasharray="100 100" transform="rotate(-90 765 492)"/></mask>
+  </defs><g mask="url(#orb-l-sweep)">
+    <g filter="url(#orb-l-glow)" opacity="0.75"><path d="M660.4 116.8 A382 382 0 0 0 504.6 172.0" fill="none" stroke="url(#orb-l-arc)" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M504.6 172.0 A382 382 0 0 0 576.3 855.0" fill="none" stroke="url(#orb-l-arc)" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="30 17"/>
+      <path d="M489.1 206.9 A362 362 0 0 0 384.5 331.7" fill="none" stroke="url(#orb-l-arc)" stroke-width="4" stroke-linecap="round" stroke-dasharray="28 16"/>
+      <path d="M1221 456 A396 396 0 0 1 864 889 A438 438 0 0 0 1221 456 Z" fill="url(#orb-l-cres)"/>
+      <g class="orb-star orb-star-1"><path d="M766 24 Q776.24 79.44 830 90 Q776.24 101.52 766 162 Q755.76 101.52 702 90 Q755.76 79.44 766 24 Z" fill="url(#orb-l-star)"/></g><g class="orb-star orb-star-2"><path d="M767 830 Q775.96 882.08 823 892 Q775.96 901.6 767 952 Q758.04 901.6 711 892 Q758.04 882.08 767 830 Z" fill="url(#orb-l-star)"/></g>
+      <g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="9.0s" begin="0.0s" repeatCount="indefinite" values="-5 707 496;5 707 496;-5 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="508.2" cy="176.7" r="21.5" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="11.5s" begin="-3.1s" repeatCount="indefinite" values="-7 707 496;7 707 496;-7 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="417.5" cy="236.6" r="15.5" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="8.2s" begin="-5.4s" repeatCount="indefinite" values="-4 707 496;4 707 496;-4 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="323.1" cy="441.3" r="20" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="12.7s" begin="-1.7s" repeatCount="indefinite" values="-6 707 496;6 707 496;-6 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="327.1" cy="584.0" r="22" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="10.3s" begin="-7.2s" repeatCount="indefinite" values="-5 707 496;5 707 496;-5 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="401.5" cy="721.1" r="18" fill="url(#orb-l-bead)"/></g></g>
+    <g><path d="M660.4 116.8 A382 382 0 0 0 504.6 172.0" fill="none" stroke="url(#orb-l-arc)" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M504.6 172.0 A382 382 0 0 0 576.3 855.0" fill="none" stroke="url(#orb-l-arc)" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="30 17"/>
+      <path d="M489.1 206.9 A362 362 0 0 0 384.5 331.7" fill="none" stroke="url(#orb-l-arc)" stroke-width="4" stroke-linecap="round" stroke-dasharray="28 16"/>
+      <path d="M1221 456 A396 396 0 0 1 864 889 A438 438 0 0 0 1221 456 Z" fill="url(#orb-l-cres)"/>
+      <g class="orb-star orb-star-1"><path d="M766 24 Q776.24 79.44 830 90 Q776.24 101.52 766 162 Q755.76 101.52 702 90 Q755.76 79.44 766 24 Z" fill="url(#orb-l-star)"/><clipPath id="orb-l-star1-clip"><path d="M766 24 Q776.24 79.44 830 90 Q776.24 101.52 766 162 Q755.76 101.52 702 90 Q755.76 79.44 766 24 Z"/></clipPath><g class="orb-star-waves" clip-path="url(#orb-l-star1-clip)"><rect x="754.5" y="38.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/><rect x="762.5" y="38.5" width="7" height="7" fill="#6d28d9" style="--d:0.96"/><rect x="770.5" y="38.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/><rect x="738.5" y="46.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="746.5" y="46.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="754.5" y="46.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="762.5" y="46.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="770.5" y="46.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="778.5" y="46.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="786.5" y="46.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="730.5" y="54.5" width="7" height="7" fill="#6d28d9" style="--d:0.91"/><rect x="738.5" y="54.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="746.5" y="54.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="754.5" y="54.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="762.5" y="54.5" width="7" height="7" fill="#8b5cf6" style="--d:0.64"/><rect x="770.5" y="54.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="778.5" y="54.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="786.5" y="54.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="794.5" y="54.5" width="7" height="7" fill="#6d28d9" style="--d:0.91"/><rect x="722.5" y="62.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="730.5" y="62.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="738.5" y="62.5" width="7" height="7" fill="#8b5cf6" style="--d:0.68"/><rect x="746.5" y="62.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="754.5" y="62.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="762.5" y="62.5" width="7" height="7" fill="#c084fc" style="--d:0.48"/><rect x="770.5" y="62.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="778.5" y="62.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="786.5" y="62.5" width="7" height="7" fill="#8b5cf6" style="--d:0.68"/><rect x="794.5" y="62.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="802.5" y="62.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="722.5" y="70.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="730.5" y="70.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="738.5" y="70.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="746.5" y="70.5" width="7" height="7" fill="#c084fc" style="--d:0.45"/><rect x="754.5" y="70.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="762.5" y="70.5" width="7" height="7" fill="#c084fc" style="--d:0.32"/><rect x="770.5" y="70.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="778.5" y="70.5" width="7" height="7" fill="#c084fc" style="--d:0.45"/><rect x="786.5" y="70.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="794.5" y="70.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="802.5" y="70.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="714.5" y="78.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/><rect x="722.5" y="78.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="730.5" y="78.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="738.5" y="78.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="746.5" y="78.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="754.5" y="78.5" width="7" height="7" fill="#f0abfc" style="--d:0.23"/><rect x="762.5" y="78.5" width="7" height="7" fill="#f0abfc" style="--d:0.16"/><rect x="770.5" y="78.5" width="7" height="7" fill="#f0abfc" style="--d:0.23"/><rect x="778.5" y="78.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="786.5" y="78.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="794.5" y="78.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="802.5" y="78.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="810.5" y="78.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/><rect x="714.5" y="86.5" width="7" height="7" fill="#6d28d9" style="--d:0.96"/><rect x="722.5" y="86.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="730.5" y="86.5" width="7" height="7" fill="#8b5cf6" style="--d:0.64"/><rect x="738.5" y="86.5" width="7" height="7" fill="#c084fc" style="--d:0.48"/><rect x="746.5" y="86.5" width="7" height="7" fill="#c084fc" style="--d:0.32"/><rect x="754.5" y="86.5" width="7" height="7" fill="#f0abfc" style="--d:0.16"/><rect x="762.5" y="86.5" width="7" height="7" fill="#f0abfc" style="--d:0.00"/><rect x="770.5" y="86.5" width="7" height="7" fill="#f0abfc" style="--d:0.16"/><rect x="778.5" y="86.5" width="7" height="7" fill="#c084fc" style="--d:0.32"/><rect x="786.5" y="86.5" width="7" height="7" fill="#c084fc" style="--d:0.48"/><rect x="794.5" y="86.5" width="7" height="7" fill="#8b5cf6" style="--d:0.64"/><rect x="802.5" y="86.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="810.5" y="86.5" width="7" height="7" fill="#6d28d9" style="--d:0.96"/><rect x="714.5" y="94.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/><rect x="722.5" y="94.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="730.5" y="94.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="738.5" y="94.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="746.5" y="94.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="754.5" y="94.5" width="7" height="7" fill="#f0abfc" style="--d:0.23"/><rect x="762.5" y="94.5" width="7" height="7" fill="#f0abfc" style="--d:0.16"/><rect x="770.5" y="94.5" width="7" height="7" fill="#f0abfc" style="--d:0.23"/><rect x="778.5" y="94.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="786.5" y="94.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="794.5" y="94.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="802.5" y="94.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="810.5" y="94.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/><rect x="722.5" y="102.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="730.5" y="102.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="738.5" y="102.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="746.5" y="102.5" width="7" height="7" fill="#c084fc" style="--d:0.45"/><rect x="754.5" y="102.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="762.5" y="102.5" width="7" height="7" fill="#c084fc" style="--d:0.32"/><rect x="770.5" y="102.5" width="7" height="7" fill="#c084fc" style="--d:0.36"/><rect x="778.5" y="102.5" width="7" height="7" fill="#c084fc" style="--d:0.45"/><rect x="786.5" y="102.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="794.5" y="102.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="802.5" y="102.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="722.5" y="110.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="730.5" y="110.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="738.5" y="110.5" width="7" height="7" fill="#8b5cf6" style="--d:0.68"/><rect x="746.5" y="110.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="754.5" y="110.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="762.5" y="110.5" width="7" height="7" fill="#c084fc" style="--d:0.48"/><rect x="770.5" y="110.5" width="7" height="7" fill="#c084fc" style="--d:0.51"/><rect x="778.5" y="110.5" width="7" height="7" fill="#8b5cf6" style="--d:0.58"/><rect x="786.5" y="110.5" width="7" height="7" fill="#8b5cf6" style="--d:0.68"/><rect x="794.5" y="110.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="802.5" y="110.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="730.5" y="118.5" width="7" height="7" fill="#6d28d9" style="--d:0.91"/><rect x="738.5" y="118.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="746.5" y="118.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="754.5" y="118.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="762.5" y="118.5" width="7" height="7" fill="#8b5cf6" style="--d:0.64"/><rect x="770.5" y="118.5" width="7" height="7" fill="#8b5cf6" style="--d:0.66"/><rect x="778.5" y="118.5" width="7" height="7" fill="#8b5cf6" style="--d:0.72"/><rect x="786.5" y="118.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="794.5" y="118.5" width="7" height="7" fill="#6d28d9" style="--d:0.91"/><rect x="738.5" y="126.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="746.5" y="126.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="754.5" y="126.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="762.5" y="126.5" width="7" height="7" fill="#6d28d9" style="--d:0.80"/><rect x="770.5" y="126.5" width="7" height="7" fill="#6d28d9" style="--d:0.82"/><rect x="778.5" y="126.5" width="7" height="7" fill="#6d28d9" style="--d:0.86"/><rect x="786.5" y="126.5" width="7" height="7" fill="#6d28d9" style="--d:0.93"/><rect x="754.5" y="134.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/><rect x="762.5" y="134.5" width="7" height="7" fill="#6d28d9" style="--d:0.96"/><rect x="770.5" y="134.5" width="7" height="7" fill="#6d28d9" style="--d:0.97"/></g></g><g class="orb-star orb-star-2"><path d="M767 830 Q775.96 882.08 823 892 Q775.96 901.6 767 952 Q758.04 901.6 711 892 Q758.04 882.08 767 830 Z" fill="url(#orb-l-star)"/></g>
+      <g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="9.0s" begin="0.0s" repeatCount="indefinite" values="-5 707 496;5 707 496;-5 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="508.2" cy="176.7" r="21.5" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="11.5s" begin="-3.1s" repeatCount="indefinite" values="-7 707 496;7 707 496;-7 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="417.5" cy="236.6" r="15.5" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="8.2s" begin="-5.4s" repeatCount="indefinite" values="-4 707 496;4 707 496;-4 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="323.1" cy="441.3" r="20" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="12.7s" begin="-1.7s" repeatCount="indefinite" values="-6 707 496;6 707 496;-6 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="327.1" cy="584.0" r="22" fill="url(#orb-l-bead)"/></g><g class="orb-bead"><animateTransform attributeName="transform" type="rotate" dur="10.3s" begin="-7.2s" repeatCount="indefinite" values="-5 707 496;5 707 496;-5 707 496" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/><circle cx="401.5" cy="721.1" r="18" fill="url(#orb-l-bead)"/></g></g>
+  </g></svg>
+<svg class="mel-mark" viewBox="240 0 1060 1024" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="sclera" x1="0" y1="470" x2="0" y2="625" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3a00d8"/><stop offset="0.22" stop-color="#b000f6"/>
+      <stop offset="0.5" stop-color="#f53ef6"/><stop offset="0.8" stop-color="#fab0f6"/><stop offset="1" stop-color="#ffeaff"/>
+    </linearGradient>
+    <radialGradient id="mel-iris" cx="0.5" cy="0.46" r="0.5">
+      <stop offset="0" stop-color="#05001a"/><stop offset="0.55" stop-color="#0b0233"/>
+      <stop offset="0.82" stop-color="#2a0a95"/><stop offset="0.95" stop-color="#4a16d0"/><stop offset="1" stop-color="#170456"/>
+    </radialGradient>
+    <linearGradient id="mel-lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05001a"/><stop offset="0.75" stop-color="#140548"/><stop offset="1" stop-color="#2a0c82"/></linearGradient>
+    <filter id="mel-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="mel-lidblur" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="mel-glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <image href="/static/art/melodie-mark.webp" width="1536" height="1024"/>
+  
+  <g class="mel-eye" data-eye="left" data-cx="612" data-cy="553">
+    <clipPath id="mel-clip-left"><polygon points="492,477 700,588 670,606 640,619 600,623 560,606 540,590 520,569 505,530 497,500 492,477"/></clipPath>
+    <linearGradient id="mel-sclera-left" gradientUnits="userSpaceOnUse" x1="599" y1="527" x2="553" y2="614">
+      <stop offset="0" stop-color="#2a1cf2"/><stop offset="0.24" stop-color="#6c12f6"/><stop offset="0.45" stop-color="#d81ef6"/>
+      <stop offset="0.62" stop-color="#f790f5"/><stop offset="0.86" stop-color="#fff2ff"/>
+    </linearGradient>
+    <g clip-path="url(#mel-clip-left)">
+      <polygon points="492,477 700,588 670,606 640,619 600,623 560,606 540,590 520,569 505,530 497,500 492,477" fill="url(#mel-sclera-left)"/>
+      <g class="mel-iris" transform="translate(612 553)">
+        <circle r="49" fill="url(#mel-iris)"/>
+        <ellipse cx="0" cy="20.6" rx="30.4" ry="12.7" fill="#a24cf8" opacity="0.7" filter="url(#mel-soft)"/>
+        <circle r="24.5" cy="2" fill="#04000f" opacity="0.85"/>
+        <circle cx="29" cy="22" r="10.5" fill="#f9a6f9" opacity="0.45" filter="url(#mel-glow)"/><circle cx="29" cy="22" r="7.5" fill="#ffd2ff"/><circle cx="-13" cy="27" r="4.0" fill="#e23cf2" opacity="0.9"/>
+      </g>
+      <polyline points="492,477 700,588" stroke="#07002a" stroke-width="16" fill="none" filter="url(#mel-lidblur)" opacity="0.6"/>
+    </g>
+    <clipPath id="mel-lidclip-left"><polygon points="492,477 700,588 710,594 670,615 640,628 600,632 560,615 540,599 520,578 505,539 497,509 489,480"/></clipPath>
+    <g clip-path="url(#mel-lidclip-left)">
+      <g class="mel-lid" transform="translate(0 -185)">
+        <path d="M710,591 Q670,612 655.0,618.5 Q640,625 620.0,627.0 Q600,629 580.0,620.5 Q560,612 550.0,604.0 Q540,596 530.0,585.5 Q520,575 512.5,555.5 Q505,536 501.0,521.0 Q497,506 493.0,492.5 L489,479 L489,247 L710,247 Z" fill="url(#mel-lid)"/>
+        <path d="M710,591 Q670,612 655.0,618.5 Q640,625 620.0,627.0 Q600,629 580.0,620.5 Q560,612 550.0,604.0 Q540,596 530.0,585.5 Q520,575 512.5,555.5 Q505,536 501.0,521.0 Q497,506 493.0,492.5 L489,479" fill="none" stroke="#c77dff" stroke-width="2.2" stroke-linecap="round" opacity="0.55" transform="translate(0 -3)"/>
+        <path d="M710,591 Q670,612 655.0,618.5 Q640,625 620.0,627.0 Q600,629 580.0,620.5 Q560,612 550.0,604.0 Q540,596 530.0,585.5 Q520,575 512.5,555.5 Q505,536 501.0,521.0 Q497,506 493.0,492.5 L489,479" fill="none" stroke="#05001a" stroke-width="4" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+  
+  <g class="mel-eye" data-eye="right" data-cx="917" data-cy="553">
+    <clipPath id="mel-clip-right"><polygon points="1037,477 829,588 859,606 889,619 929,623 969,606 989,590 1009,569 1024,530 1032,500 1037,477"/></clipPath>
+    <linearGradient id="mel-sclera-right" gradientUnits="userSpaceOnUse" x1="930" y1="527" x2="976" y2="614">
+      <stop offset="0" stop-color="#2a1cf2"/><stop offset="0.24" stop-color="#6c12f6"/><stop offset="0.45" stop-color="#d81ef6"/>
+      <stop offset="0.62" stop-color="#f790f5"/><stop offset="0.86" stop-color="#fff2ff"/>
+    </linearGradient>
+    <g clip-path="url(#mel-clip-right)">
+      <polygon points="1037,477 829,588 859,606 889,619 929,623 969,606 989,590 1009,569 1024,530 1032,500 1037,477" fill="url(#mel-sclera-right)"/>
+      <g class="mel-iris" transform="translate(917 553)">
+        <circle r="49" fill="url(#mel-iris)"/>
+        <ellipse cx="0" cy="20.6" rx="30.4" ry="12.7" fill="#a24cf8" opacity="0.7" filter="url(#mel-soft)"/>
+        <circle r="24.5" cy="2" fill="#04000f" opacity="0.85"/>
+        <circle cx="-29" cy="22" r="10.5" fill="#f9a6f9" opacity="0.45" filter="url(#mel-glow)"/><circle cx="-29" cy="22" r="7.5" fill="#ffd2ff"/><circle cx="13" cy="27" r="4.0" fill="#e23cf2" opacity="0.9"/>
+      </g>
+      <polyline points="1037,477 829,588" stroke="#07002a" stroke-width="16" fill="none" filter="url(#mel-lidblur)" opacity="0.6"/>
+    </g>
+    <clipPath id="mel-lidclip-right"><polygon points="1037,477 829,588 819,594 859,615 889,628 929,632 969,615 989,599 1009,578 1024,539 1032,509 1040,480"/></clipPath>
+    <g clip-path="url(#mel-lidclip-right)">
+      <g class="mel-lid" transform="translate(0 -185)">
+        <path d="M819,591 Q859,612 874.0,618.5 Q889,625 909.0,627.0 Q929,629 949.0,620.5 Q969,612 979.0,604.0 Q989,596 999.0,585.5 Q1009,575 1016.5,555.5 Q1024,536 1028.0,521.0 Q1032,506 1036.0,492.5 L1040,479 L1040,247 L819,247 Z" fill="url(#mel-lid)"/>
+        <path d="M819,591 Q859,612 874.0,618.5 Q889,625 909.0,627.0 Q929,629 949.0,620.5 Q969,612 979.0,604.0 Q989,596 999.0,585.5 Q1009,575 1016.5,555.5 Q1024,536 1028.0,521.0 Q1032,506 1036.0,492.5 L1040,479" fill="none" stroke="#c77dff" stroke-width="2.2" stroke-linecap="round" opacity="0.55" transform="translate(0 -3)"/>
+        <path d="M819,591 Q859,612 874.0,618.5 Q889,625 909.0,627.0 Q929,629 949.0,620.5 Q969,612 979.0,604.0 Q989,596 999.0,585.5 Q1009,575 1016.5,555.5 Q1024,536 1028.0,521.0 Q1032,506 1036.0,492.5 L1040,479" fill="none" stroke="#05001a" stroke-width="4" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+</svg>
+        <div class="mel-notes"></div>
+      </div>
+      <button type="button" class="bg-start">Play: Bug Smash</button>
+    </div>
+
+    <div class="hero-text">
+      <div class="hero-eyebrow">Mobile Accessibility Pipeline</div>
+
+      <h1 class="hero-headline">
+        Evaluate and fix<br>
+        <span class="grad-a">Android</span><br>
+        <span class="grad-b">accessibility</span>
+        <span class="hero-sub">with end-to-end AI</span>
+      </h1>
+
+      <p class="hero-body">
+        Generate Kotlin UIs with LLMs, compile them, analyze them with static Lint and dynamic ATF
+        on a physical device, and fix violations with AI assistance — all in a single pipeline.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/analise" class="btn-primary">Start Analysis →</a>
+        <a href="/docs" class="btn-ghost"><span class="btn-ghost-text">Documentation</span> <span class="arrow">→</span></a>
+      </div>
+    </div>
+
+  </section>
+
+</div><!-- /.page -->
+
+<footer>
+  <div class="footer-left">
+    <strong>Melodie A11Y</strong>
+  </div>
+  <div class="footer-right">
+    <a href="/docs">Documentation</a>
+  </div>
+</footer>
+
+<script src="/static/js/router.js"></script>
+<script src="/static/js/melodie-game.js?v=5" defer></script>
+<script>
+(function () {
+  // Self-contained TextScramble for landing.html elements.
+  // router.js has its own copy for nav on all pages; this one is independent.
+  class TS {
+    constructor(el) {
+      this.el = el;
+      this.original = el.textContent;
+      this.chars = [...new Set(this.original.replace(/ /g, ''))].join('');
+      this.timer = null;
+    }
+    scramble() {
+      const original = this.original, chars = this.chars;
+      let iteration = -2.5;
+      clearInterval(this.timer);
+      this.timer = setInterval(() => {
+        this.el.textContent = Array.from(original).map((ch, i) => {
+          if (ch === ' ') return ' ';
+          if (i < Math.floor(iteration)) return ch;
+          return chars[Math.floor(Math.random() * chars.length)];
+        }).join('');
+        iteration += 0.42;
+        if (iteration >= original.length) {
+          clearInterval(this.timer);
+          this.el.textContent = original;
+        }
+      }, 30);
+    }
+    restore() { clearInterval(this.timer); this.el.textContent = this.original; }
+  }
+
+  function attach(el, trigger) {
+    const ts = new TS(el);
+    (trigger || el).addEventListener('mouseenter', () => ts.scramble());
+    (trigger || el).addEventListener('mouseleave',  () => ts.restore());
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Nav links — router.js handles these; use its guard flag to avoid double-init
+    document.querySelectorAll('.nav-link').forEach(el => {
+      if (el.dataset.scrambleInit) return;
+      attach(el);
+    });
+
+    const btnPrimary = document.querySelector('.btn-primary');
+    if (btnPrimary) attach(btnPrimary);
+
+    const btnGhostText = document.querySelector('.btn-ghost-text');
+    if (btnGhostText) attach(btnGhostText, btnGhostText.closest('.btn-ghost'));
+
+    document.querySelectorAll('.footer-right a').forEach(el => attach(el));
+  });
+})();
+</script>
+<script>
+(function () {
+  // Melodie's eyes. Entrance: eyes closed while the orbit draws itself, then they open on the visitor.
+  // Then: pupils follow the pointer, snap back to the visitor after 4 s, she blinks now and then and
+  // dozes off after 30 s without activity (any activity wakes her with a double blink).
+  // The eyelids are drawn every frame from each eye's real outline: the upper lid's edge bends from the
+  // straight brow line into the eye's lower curve while the lower lid rises a little to meet it.
+  const mark = document.querySelector('.hero-mark');
+  const svg = mark && mark.querySelector('.mel-mark');
+  if (!svg) return;
+  const orbit = mark.querySelector('.mel-orbit');
+  const body = mark.querySelector('.mel-body');
+  const notesBox = mark.querySelector('.mel-notes');
+  const NS = 'http://www.w3.org/2000/svg';
+  const MAX_X = 15, MAX_Y = 9, IDLE_MS = 4000, SLEEP_MS = 30000, OPEN_AT = 1750;
+  const UPPER_SHARE = 0.78, SAMPLES = 28;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const chaikin = pts => {
+    const out = [pts[0]];
+    for (let k = 0; k < pts.length - 1; k++) out.push(lerp(pts[k], pts[k + 1], 0.25), lerp(pts[k], pts[k + 1], 0.75));
+    out.push(pts[pts.length - 1]); return out;
+  };
+  const smoothPath = (pts, move = true) => {
+    let d = (move ? 'M' : 'L') + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1);
+    for (let k = 1; k < pts.length - 1; k++) {
+      const m = lerp(pts[k], pts[k + 1], 0.5);
+      d += ` Q${pts[k][0].toFixed(1)},${pts[k][1].toFixed(1)} ${m[0].toFixed(1)},${m[1].toFixed(1)}`;
+    }
+    const z = pts[pts.length - 1];
+    return d + ` L${z[0].toFixed(1)},${z[1].toFixed(1)}`;
+  };
+  const el = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
+
+  // lid gradients (light towards the edge, so the lid reads as rounded)
+  const defs = svg.querySelector('defs');
+  defs.append(
+    Object.assign(el('linearGradient', { id: 'mel-lid-up', x1: 0, y1: 0, x2: 0, y2: 1 }), { innerHTML:
+      '<stop offset="0" stop-color="#060019"/><stop offset="0.65" stop-color="#170654"/><stop offset="0.92" stop-color="#3a17a4"/><stop offset="1" stop-color="#5226c8"/>' }),
+    Object.assign(el('linearGradient', { id: 'mel-lid-low', x1: 0, y1: 0, x2: 0, y2: 1 }), { innerHTML:
+      '<stop offset="0" stop-color="#4a20b8"/><stop offset="0.3" stop-color="#22086e"/><stop offset="1" stop-color="#0d0236"/>' }));
+
+  const eyes = [...svg.querySelectorAll('.mel-eye')].map(g => {
+    const pts = g.querySelector('clipPath polygon').getAttribute('points').trim().split(/\s+/).map(q => q.split(',').map(Number));
+    const A = pts[0], B = pts[1];                       // outer corner, inner corner (straight brow line)
+    let bottom = pts.slice(1);                          // B → around the lower curve → A
+    for (let k = 0; k < 3; k++) bottom = chaikin(bottom);
+    const cum = [0];
+    for (let k = 1; k < bottom.length; k++) cum.push(cum[k - 1] + Math.hypot(bottom[k][0] - bottom[k - 1][0], bottom[k][1] - bottom[k - 1][1]));
+    const along = f => {                                // point at arc-length fraction f (0 = B, 1 = A)
+      const L = f * cum[cum.length - 1];
+      let k = 1; while (k < cum.length - 1 && cum[k] < L) k++;
+      return lerp(bottom[k - 1], bottom[k], (L - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1));
+    };
+    const U = [], Bot = [];
+    for (let k = 0; k <= SAMPLES; k++) { const t = k / SAMPLES; U.push(lerp(A, B, t)); Bot.push(along(1 - t)); }
+    const lid = g.querySelector('.mel-lid');
+    lid.removeAttribute('transform'); lid.replaceChildren();
+    const upper = el('path', { fill: 'url(#mel-lid-up)' });
+    const lower = el('path', { fill: 'url(#mel-lid-low)' });
+    const sheen = el('path', { fill: 'none', stroke: '#b98cff', 'stroke-width': 2, 'stroke-linecap': 'round' });
+    const lash = el('path', { fill: 'none', stroke: '#04000f', 'stroke-width': 4.5, 'stroke-linecap': 'round' });
+    lid.append(lower, upper, sheen, lash);
+    const shadow = el('path', { fill: 'none', stroke: '#05001a', 'stroke-width': 18, filter: 'url(#mel-lidblur)' });
+    g.querySelector('g[clip-path]').append(shadow);   // cast onto the eye, under the lid
+    return { cx: +g.dataset.cx, cy: +g.dataset.cy, iris: g.querySelector('.mel-iris'), U, Bot, upper, lower, sheen, lash, shadow };
+  });
+
+  function drawLids(c) {
+    const show = Math.min(1, c * 5);
+    eyes.forEach(e => {
+      const up = c * UPPER_SHARE, lo = c * (1 - UPPER_SHARE);
+      const edge = e.U.map((u, k) => lerp(u, e.Bot[k], up));
+      const low = e.Bot.map((b, k) => lerp(b, e.U[k], lo));
+      const top = e.U.map(([x, y]) => [x, y - 14]);
+      const under = e.Bot.map(([x, y]) => [x, y + 10]);
+      e.upper.setAttribute('d', smoothPath(top) + ' ' + smoothPath(edge.slice().reverse(), false) + ' Z');
+      e.lower.setAttribute('d', smoothPath(under) + ' ' + smoothPath(low.slice().reverse(), false) + ' Z');
+      const edgeD = smoothPath(edge);
+      e.lash.setAttribute('d', edgeD); e.lash.setAttribute('opacity', show.toFixed(3));
+      e.sheen.setAttribute('d', smoothPath(edge.map(([x, y]) => [x, y - 4]))); e.sheen.setAttribute('opacity', (0.4 * show).toFixed(3));
+      e.shadow.setAttribute('d', smoothPath(edge.map(([x, y]) => [x, y + 8]))); e.shadow.setAttribute('opacity', (0.6 * Math.min(1, c * 3)).toFixed(3));
+    });
+  }
+
+  const t0 = performance.now();
+  let target = null;            // pointer in client coords, null = look at the visitor
+  let lastMove = t0, lastActivity = t0;
+  let saccade = false, asleep = false, sleepT0 = 0, onScreen = true;
+  let raf = 0, lastT = 0, wake = 0;
+  const pos = eyes.map(() => ({ x: 0, y: 0 }));
+  let closure = 1;              // 0 = open, 1 = closed
+  let blinkStart = -1, nextBlink = t0 + OPEN_AT + 900, queued = [];
+  let deepSleep = false, fallen = [];
+  let gameOn = false, gameDanger = 0, orbitRate = 1;
+  let nextZ = 0, zCount = 0, drool = null;
+
+  // a viscous drool of data hanging from the corner of her mouth: it stretches, grows a drop that
+  // falls off, and pulls back up. Drawn in the artwork's own coordinates (viewBox 240 0 1060 1024).
+  const DX = 856, DY = 690, LMAX = 120, PERIOD = 2900;   // corner of her mouth, lower right of the face
+  function makeDrool() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svgEl = document.createElementNS(NS, 'svg');
+    svgEl.setAttribute('class', 'mel-drool-svg'); svgEl.setAttribute('viewBox', '240 0 1060 1024');
+    svgEl.setAttribute('preserveAspectRatio', 'none'); svgEl.setAttribute('aria-hidden', 'true');
+    svgEl.innerHTML = `
+      <defs>
+        <linearGradient id="dr-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c084fc"/><stop offset="0.55" stop-color="#e879f9"/><stop offset="1" stop-color="#f9a8d4"/></linearGradient>
+        <filter id="dr-glow" x="-60%" y="-30%" width="220%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <g filter="url(#dr-glow)" opacity="0.92">
+        <path class="dr-strand" fill="url(#dr-fill)"/>
+        <ellipse class="dr-drop" fill="url(#dr-fill)"/>
+        <path class="dr-shine" fill="none" stroke="#fdf4ff" stroke-width="2.4" stroke-linecap="round" opacity="0.7"/>
+      </g>
+      <g class="dr-bits" font-family="SF Mono, Fira Mono, Consolas, monospace" font-weight="700" font-size="15" fill="#fdf4ff" text-anchor="middle"></g>`;
+    notesBox.append(svgEl);
+    const bits = svgEl.querySelector('.dr-bits');
+    for (let k = 0; k < 7; k++) {
+      const t = document.createElementNS(NS, 'text'); t.textContent = k % 2 ? '1' : '0'; bits.append(t);
+    }
+    return { svg: svgEl, strand: svgEl.querySelector('.dr-strand'), drop: svgEl.querySelector('.dr-drop'),
+             shine: svgEl.querySelector('.dr-shine'), bits: [...bits.children], t0: performance.now() };
+  }
+  const smooth = u => u * u * (3 - 2 * u);
+  // wide where it clings to the ring, a thin neck, a heavy bulb that sways a little
+  function teardrop(L, r, w0, bx) {
+    const yc = DY + L, w1 = Math.max(1.4, r * 0.24), nx = DX + (bx - DX) * 0.6;
+    return `M${DX - w0 * 2.2},${DY - 4} Q${DX - w0},${DY} ${DX - w0 * 0.8},${DY + 10} ` +
+           `C${DX - w0 * 0.6},${DY + L * 0.4} ${nx - w1},${yc - r * 1.9} ${bx - r * 0.62},${yc - r * 0.78} ` +
+           `A${r},${r * 1.08} 0 1 0 ${bx + r * 0.62},${yc - r * 0.78} ` +
+           `C${nx + w1},${yc - r * 1.9} ${DX + w0 * 0.6},${DY + L * 0.4} ${DX + w0 * 0.8},${DY + 10} Q${DX + w0},${DY} ${DX + w0 * 2.2},${DY - 4} Z`;
+  }
+  function drawDrool(now) {
+    if (!drool) drool = makeDrool();
+    const u = ((now - drool.t0) % PERIOD) / PERIOD;
+    let L, r, dropY = null, dropR = 0, dropA = 0;
+    if (u < 0.72) {                                   // stretching, the drop swells at the tip
+      const k = smooth(u / 0.72);
+      L = 8 + LMAX * k; r = 5 + 14 * k;
+    } else {                                          // the drop lets go and falls; the strand snaps back
+      const k = (u - 0.72) / 0.28;
+      L = (8 + LMAX) * (1 - smooth(k)) * 0.85 + 8; r = 4 + 3 * (1 - k);
+      dropY = DY + 8 + LMAX + 300 * k * k; dropR = 18 - 5 * k; dropA = 1 - k;
+    }
+    const bx = DX + Math.sin((now - drool.t0) / 520) * Math.min(6, L * 0.06);
+    drool.strand.setAttribute('d', teardrop(L, r, 10, bx));
+    drool.shine.setAttribute('d', `M${DX - 4},${DY + 8} Q${DX - 3},${DY + L * 0.5} ${bx - r * 0.45},${DY + L - r * 0.3}`);
+    if (dropY === null) drool.drop.setAttribute('rx', 0);
+    else {
+      drool.drop.setAttribute('cx', DX); drool.drop.setAttribute('cy', dropY.toFixed(1));
+      drool.drop.setAttribute('rx', dropR.toFixed(1)); drool.drop.setAttribute('ry', (dropR * 1.25).toFixed(1));
+      drool.drop.setAttribute('opacity', dropA.toFixed(2));
+    }
+    // 0s and 1s carried inside the slime
+    drool.bits.forEach((t, k) => {
+      if (k < 5) {
+        const f = (k + 0.5) / 5, y = DY + 10 + (L - 4) * f;
+        t.setAttribute('x', (DX + (bx - DX) * f * f).toFixed(1)); t.setAttribute('y', (y + 5).toFixed(1));
+        t.setAttribute('font-size', (9 + 6 * f).toFixed(1));
+        t.setAttribute('opacity', L * f > 14 ? '0.9' : '0');
+      } else if (k === 5) {
+        const y = dropY === null ? DY + L : dropY;
+        t.setAttribute('x', dropY === null ? bx.toFixed(1) : DX); t.setAttribute('y', (y + 6).toFixed(1)); t.setAttribute('font-size', '19');
+        t.setAttribute('opacity', (dropY === null ? Math.min(1, r / 14) : dropA).toFixed(2));
+      } else t.setAttribute('opacity', '0');
+    });
+  }
+  function clearDrool() { if (drool) { drool.svg.remove(); drool = null; } }
+
+  // asleep: Z's float up beside her head and a drool of 0s and 1s drips below her eyes
+  // (positions are in the artwork's 240..1300 x 0..1024 view, as % of the mark)
+  const pct = (x, y) => ({ left: ((x - 240) / 1060 * 100).toFixed(2) + '%', top: (y / 1024 * 100).toFixed(2) + '%' });
+  function sleepFx(now) {
+    const size = mark.offsetWidth;
+    if (now >= nextZ) {
+      nextZ = now + 1100;
+      const z = document.createElement('span');
+      z.className = 'mel-z'; z.textContent = 'Z';
+      const big = 0.045 + 0.016 * (zCount++ % 3);
+      Object.assign(z.style, pct(1010, 300), { fontSize: (size * big).toFixed(1) + 'px' });
+      notesBox.append(z);
+      z.animate([
+        { transform: 'translate(0, 0) rotate(-8deg)', opacity: 0 },
+        { opacity: 1, offset: 0.2 },
+        { transform: `translate(${(size * 0.09).toFixed(0)}px, ${(-size * 0.2).toFixed(0)}px) rotate(12deg)`, opacity: 0 },
+      ], { duration: 2600, easing: 'ease-out' }).onfinish = () => z.remove();
+    }
+    if (deepSleep) drawDrool(now);
+  }
+
+  // Fully asleep: the orbit stops turning and every piece of it falls; waking up brings them back.
+  function orbitSpin() { return orbit ? orbit.getAnimations().find(a => a.animationName === 'mel-orbit-spin') : null; }
+  function setDeepSleep(on) {
+    if (on === deepSleep || !orbit) return;
+    deepSleep = on;
+    if (!on) clearDrool();
+    const spin = orbitSpin();
+    // every piece of the orbit (arcs, crescent, stars, beads); the glow copy and the crisp copy move together
+    const copies = [...orbit.querySelectorAll(':scope > g > g')].map(g => [...g.children]);
+    const n = copies.length ? copies[0].length : 0;
+    if (on) {
+      if (spin) spin.pause();
+      orbit.pauseAnimations();                                   // beads stop drifting
+      const m = new DOMMatrix(getComputedStyle(orbit).transform);
+      const th = Math.atan2(m.b, m.a);                           // current rotation: "down" on screen in orbit coordinates
+      const D = 900, dx = D * Math.sin(th), dy = D * Math.cos(th);
+      fallen = [];
+      for (let k = 0; k < n; k++) {
+        const delay = Math.random() * 650, spinDeg = (Math.random() - 0.5) * 50, drift = (Math.random() - 0.5) * 60;
+        const ddx = dx + drift * Math.cos(th), ddy = dy - drift * Math.sin(th);
+        copies.forEach(c => {
+          const el = c[k];
+          el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
+          fallen.push(el.animate([
+            { translate: '0px 0px', rotate: '0deg', opacity: 1 },
+            { translate: `${ddx * 0.12}px ${ddy * 0.12}px`, rotate: `${spinDeg * 0.2}deg`, opacity: 1, offset: 0.35 },
+            { translate: `${ddx}px ${ddy}px`, rotate: `${spinDeg}deg`, opacity: 0 },
+          ], { duration: 1500 + Math.random() * 400, delay, easing: 'cubic-bezier(0.55, 0, 0.9, 0.45)', fill: 'forwards' }));
+        });
+      }
+    } else {
+      fallen.forEach(a => a.cancel()); fallen = [];
+      for (let k = 0; k < n; k++) {
+        const delay = 80 + Math.random() * 380;
+        copies.forEach(c => c[k].animate([{ opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1 }],
+          { duration: 600, delay, easing: 'cubic-bezier(0.3, 1.5, 0.5, 1)', fill: 'backwards' }));
+      }
+      if (spin) spin.play();
+      if (onScreen) orbit.unpauseAnimations();
+    }
+  }
+
+  const ease = (dt, tau) => 1 - Math.exp(-dt / tau);
+  const opened = now => now - t0 >= OPEN_AT;
+
+  function eyeTarget(i) {
+    if (asleep) return { x: 0, y: 6 };
+    if (!target) return { x: 0, y: 0 };
+    const m = svg.getScreenCTM();
+    if (!m) return { x: 0, y: 0 };
+    const ex = m.a * eyes[i].cx + m.c * eyes[i].cy + m.e;
+    const ey = m.b * eyes[i].cx + m.d * eyes[i].cy + m.f;
+    const dx = target.x - ex, dy = target.y - ey;
+    const dist = Math.hypot(dx, dy) || 1;
+    const reach = Math.min(1, dist / 260);          // close to the face → smaller offset
+    let x = (dx / dist) * reach * MAX_X, y = (dy / dist) * reach * MAX_Y;
+    const k = Math.hypot(x / MAX_X, y / MAX_Y);    // keep inside an ellipse
+    if (k > 1) { x /= k; y /= k; }
+    return { x, y };
+  }
+
+  // [goal, time constant]: lids get heavy, she fights it once, then gives in and closes her eyes
+  function lidGoal(now) {
+    if (!opened(now)) return [1, 0.1];
+    if (gameOn && gameDanger > 0.55) return [0.4, 0.12];   // worried: a bug is near her phone
+    if (!asleep) return [0, 0.12];
+    const s = (now - sleepT0) / 1000;
+    if (s < 2.6) return [0.55, 1.1];
+    if (s < 3.0) return [0.26, 0.12];
+    return [1, 1.0];                                 // then the eyes close completely
+  }
+
+  // a real blink closes fast and reopens more slowly
+  function blinkAmount(now) {
+    if (blinkStart < 0) return 0;
+    const t = now - blinkStart, down = 80, hold = 35, up = 170;
+    if (t < 0) return 0;
+    if (t < down) return Math.pow(t / down, 2);
+    if (t < down + hold) return 1;
+    if (t < down + hold + up) return Math.pow(1 - (t - down - hold) / up, 3);
+    blinkStart = -1;
+    return 0;
+  }
+
+  function setOrbitRate(rate) {
+    if (!orbit || reduceMotion.matches) return;
+    orbit.getAnimations().forEach(a => (a.updatePlaybackRate ? a.updatePlaybackRate(rate) : (a.playbackRate = rate)));
+  }
+
+  // the bug game: she follows the hand, worries when a bug gets close to her phone, and her orbit speeds up with combos
+  window.addEventListener('melodie:game', e => {
+    const d = e.detail;
+    if (d.kind === 'start') { gameOn = true; activity(); }
+    else if (d.kind === 'end') { gameOn = false; gameDanger = 0; if (orbitRate !== 1) { orbitRate = 1; setOrbitRate(1); } activity(); }
+    else if (d.kind === 'state' && gameOn) {
+      target = { x: d.x, y: d.y }; lastMove = performance.now(); saccade = false;
+      gameDanger = d.danger;
+      const rate = 1 + Math.min(d.combo, 20) * 0.06;
+      if (Math.abs(rate - orbitRate) > 0.01) { orbitRate = rate; setOrbitRate(rate); }
+      activity();
+    }
+  });
+  function frame(now) {
+    const dt = Math.min(0.1, lastT ? (now - lastT) / 1000 : 1 / 60);
+    lastT = now;
+    if (target && now - lastMove > IDLE_MS) { target = null; saccade = true; }
+    if (!asleep && opened(now) && now - lastActivity > SLEEP_MS) { asleep = true; sleepT0 = now; }
+    if (asleep && !deepSleep && now - sleepT0 > 4200) setDeepSleep(true);
+    if (blinkStart < 0 && queued.length && now >= queued[0]) blinkStart = queued.shift();
+    if (!asleep && opened(now) && blinkStart < 0 && now >= nextBlink) {
+      blinkStart = now;
+      nextBlink = now + (Math.random() < 0.2 ? 330 : 2800 + Math.random() * 3700);
+    }
+    if (asleep && closure > 0.85) sleepFx(now);
+    else if (drool) clearDrool();
+    const [goal, tau] = lidGoal(now);
+    closure += (goal - closure) * ease(dt, tau);
+    const blink = blinkAmount(now);
+    drawLids(Math.max(closure, blink));
+    let moving = asleep || Math.abs(goal - closure) > 0.002;
+    eyes.forEach((eye, i) => {
+      const t = eyeTarget(i), p = pos[i];
+      const k = ease(dt, saccade ? 0.035 : asleep ? 0.7 : 0.11);
+      p.x += (t.x - p.x) * k; p.y += (t.y - p.y) * k;
+      if (Math.abs(t.x - p.x) > 0.05 || Math.abs(t.y - p.y) > 0.05) moving = true;
+      const dip = 3 * blink;                          // the eye drops slightly while the lid is down
+      eye.iris.setAttribute('transform', `translate(${(eye.cx + p.x).toFixed(2)} ${(eye.cy + p.y + dip).toFixed(2)})`);
+    });
+    if (!moving) saccade = false;
+    if (moving || blinkStart >= 0 || queued.length || !opened(now)) { raf = requestAnimationFrame(frame); return; }
+    // Nothing to animate: sleep until the next blink, the look-back or dozing off.
+    raf = 0;
+    const until = Math.min(nextBlink, target ? lastMove + IDLE_MS : Infinity, lastActivity + SLEEP_MS) - now;
+    wake = setTimeout(start, Math.max(16, until));
+  }
+
+  function start() { clearTimeout(wake); if (!raf && !document.hidden && onScreen) { lastT = 0; raf = requestAnimationFrame(frame); } }
+  function stop() { cancelAnimationFrame(raf); clearTimeout(wake); raf = 0; }
+
+  function activity() {
+    const now = performance.now();
+    lastActivity = now;
+    if (asleep) { asleep = false; queued = [now + 120, now + 470]; nextBlink = now + 3000; setDeepSleep(false); }   // wakes up blinking twice
+    start();
+  }
+  function onMove(e) { target = { x: e.clientX, y: e.clientY }; lastMove = performance.now(); saccade = false; activity(); }
+  function onVisibility() { document.hidden ? stop() : start(); }
+  const io = new IntersectionObserver(([entry]) => {
+    onScreen = entry.isIntersecting;
+    mark.classList.toggle('is-offscreen', !onScreen);
+    if (orbit && !reduceMotion.matches) (onScreen && !deepSleep) ? orbit.unpauseAnimations() : orbit.pauseAnimations();
+    onScreen ? start() : stop();
+  });
+
+  const passive = { passive: true };
+  function enable() {
+    window.addEventListener('pointermove', onMove, passive);
+    window.addEventListener('pointerdown', onMove, passive);
+    window.addEventListener('keydown', activity);
+    window.addEventListener('wheel', activity, passive);
+    document.addEventListener('scroll', activity, { passive: true, capture: true });
+    document.addEventListener('visibilitychange', onVisibility);
+    if (orbit) orbit.unpauseAnimations();
+    drawLids(opened(performance.now()) ? 0 : 1);       // closed before the first paint during the entrance
+    io.observe(mark);
+    start();
+  }
+  function disable() {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerdown', onMove);
+    window.removeEventListener('keydown', activity);
+    window.removeEventListener('wheel', activity);
+    document.removeEventListener('scroll', activity, { capture: true });
+    document.removeEventListener('visibilitychange', onVisibility);
+    setDeepSleep(false);
+    if (orbit) orbit.pauseAnimations();
+    io.disconnect();
+    stop();
+    closure = 0; asleep = false; queued = []; blinkStart = -1;
+    body.style.rotate = ''; body.style.translate = '';
+    drawLids(0);
+    eyes.forEach(eye => eye.iris.setAttribute('transform', `translate(${eye.cx} ${eye.cy})`));
+  }
+
+  reduceMotion.matches ? disable() : enable();
+  reduceMotion.addEventListener('change', () => (reduceMotion.matches ? disable() : enable()));
+
+  // Leaving the landing through the SPA router removes the hero; drop the listeners with it.
+  function onNavigate() {
+    if (document.contains(svg)) return;
+    disable();
+    window.removeEventListener('spa:navigate', onNavigate);
+  }
+  window.addEventListener('spa:navigate', onNavigate);
+})();
+</script>
+</body>
+</html>

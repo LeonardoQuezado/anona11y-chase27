@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>Fix — Melodie A11Y</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #0d0718;
+      --surface:     #160d2a;
+      --border:      #2a1a4a;
+      --accent:      #fb923c;
+      --accent-h:    #f97316;
+      --accent-g:    #a855f7;
+      --accent-b:    #c084fc;
+      --text:        #e2d9f3;
+      --muted:       #9286ae;
+      --input-bg:    #1a0d30;
+      --input-bdr:   #3d2060;
+      --header-bg:   #1a0d30;
+    }
+    html { font-size: 93.75%; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    aside {
+      width: 360px; min-width: 360px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 18px 16px; gap: 14px;
+      overflow-y: auto;
+    }
+
+    .sec-title { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 8px; }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 20px 16px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: var(--input-bg);
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: #140e06; }
+    .upload-zone.loaded { border-color: var(--accent-g); border-style: solid; }
+    .uz-icon { font-size: 1.6rem; margin-bottom: 8px; }
+    .uz-label { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+    .uz-label strong { color: var(--text); }
+    #fileInput { display: none; }
+
+    /* ── Report summary pill ── */
+    .report-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: #0a1a10; border: 1px solid #1a4a2e; border-radius: 8px;
+      padding: 8px 12px; font-size: .74rem;
+    }
+    .rp-name { flex: 1; color: var(--accent-g); font-weight: 600; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rp-v { color: #f87171; font-weight: 700; font-size: .7rem; background: #2a0f0a; padding: 1px 7px; border-radius: 99px; }
+    .rp-v-ok { color: var(--accent-g); background: #0a1a10; }
+
+    /* ── Provider selector ── */
+    .provider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .prov-btn {
+      padding: 8px 6px; border-radius: 7px; border: 1px solid var(--border);
+      background: var(--input-bg); cursor: pointer; text-align: center;
+      transition: border-color .15s, background .15s;
+    }
+    .prov-btn:hover { border-color: var(--accent); }
+    .prov-btn.active { border-color: var(--accent); background: #140e06; }
+    .prov-name { font-size: .72rem; font-weight: 700; color: var(--text); }
+    .prov-sub  { font-size: .6rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Inputs ── */
+    label.field-label { font-size: .68rem; color: var(--muted); display: block; margin-bottom: 5px; }
+    input[type=text], input[type=password], input[type=url] {
+      width: 100%; background: var(--input-bg); border: 1px solid var(--input-bdr);
+      border-radius: 7px; padding: 8px 11px; font-size: .8rem; color: var(--text);
+      outline: none; transition: border-color .15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+
+    /* ── Run button ── */
+    .run-btn {
+      padding: 11px; background: var(--accent); color: #1a0800;
+      font-weight: 700; font-size: .87rem; border: none; border-radius: 8px;
+      cursor: pointer; transition: background .15s; flex-shrink: 0; letter-spacing: .02em;
+    }
+    .run-btn:hover:not(:disabled) { background: var(--accent-h); }
+    .run-btn:disabled { background: #1c2333; color: #808d9f; cursor: not-allowed; }
+
+    .notice { padding: 9px 12px; border-radius: 8px; font-size: .72rem; line-height: 1.6; }
+    .notice-warn  { background: #1a1000; border: 1px solid #3a2a00; color: #fbbf24; }
+    .notice-green { background: #0a1a10; border: 1px solid #1a4a2e; color: var(--accent-g); }
+
+    /* ── Main panel ── */
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .panel-header { display: flex; align-items: center; gap: 10px; padding: 9px 16px; background: var(--header-bg); border-bottom: 1px solid #21262d; font-size: .78rem; flex-shrink: 0; }
+    .panel-title { flex: 1; color: var(--muted); }
+    .status-badge { padding: 2px 9px; border-radius: 99px; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .s-idle    { background: #1c2333; color: #808d9f; }
+    .s-running { background: #140e06; color: var(--accent); }
+    .s-done    { background: #0a2016; color: #34d399; }
+    .s-error   { background: #2a0f12; color: #f87171; }
+    .hdr-btn { background: none; border: 1px solid #21262d; color: #808d9f; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: .72rem; transition: color .15s, border-color .15s; }
+    .hdr-btn:hover { color: #c9d1d9; border-color: #3d444d; }
+
+    /* ── Empty state ── */
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #768ead; text-align: center; padding: 32px; }
+    .empty-title { font-size: .9rem; color: var(--muted); }
+    .empty-sub { font-size: .78rem; line-height: 1.6; max-width: 380px; }
+
+    /* ── Violations preview ── */
+    .vp-wrap { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .vp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .vp-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0a0f18; border-bottom: 1px solid var(--border); }
+    .vp-name { flex: 1; font-weight: 600; font-size: .85rem; color: #e2e8f0; }
+    .vbadge { font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+    .vbadge-ok  { background: #0a1a10; color: var(--accent-g); border: 1px solid #1a4a2e; }
+    .vbadge-bad { background: #2a0f0a; color: #f87171; border: 1px solid #4a1a1a; }
+    .vbadge-mid { background: #1a1000; color: #fbbf24; border: 1px solid #3a2a00; }
+    .vp-body { padding: 8px 14px; display: flex; flex-direction: column; gap: 4px; }
+    .vi { display: flex; align-items: flex-start; gap: 7px; font-size: .72rem; line-height: 1.5; padding: 5px 6px; border-radius: 6px; background: #0a0f18; color: #a8b8c8; }
+    .vtag { flex-shrink: 0; font-family: monospace; font-weight: 700; font-size: .62rem; padding: 1px 5px; border-radius: 4px; margin-top: 2px; }
+    .vtag-l { background: #0a1a10; color: var(--accent-g); }
+    .vtag-s { background: #0f1a0a; color: #86efac; }
+    .vtag-a { background: #0a1020; color: var(--accent-b); }
+
+    /* ── Output / corrected code ── */
+    .output-wrap { flex: 1; overflow-y: auto; padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: .78rem; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+    .ln { display: block; }
+    .ln-empty  { min-height: .9em; }
+    .ln-status { color: var(--accent); }
+    .ln-err    { color: #f87171; }
+    .ln-ok     { color: var(--accent-g); }
+    .ln-code   { color: #86efac; }
+
+    /* ── Code result blocks ── */
+    .code-results { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+    .code-block-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .cb-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0a0f18; border-bottom: 1px solid var(--border); }
+    .cb-name { flex: 1; font-weight: 600; font-size: .85rem; color: #e2e8f0; }
+    .dl-btn { font-size: .68rem; font-weight: 600; padding: 3px 10px; border-radius: 5px; background: #0a1020; color: var(--accent-b); border: 1px solid #1a2a4e; cursor: pointer; transition: background .15s; }
+    .dl-btn:hover { background: #0f1a30; }
+    .cb-code { padding: 14px; font-family: 'SF Mono','Fira Code',monospace; font-size: .72rem; color: #86efac; line-height: 1.65; white-space: pre; overflow-x: auto; max-height: 420px; overflow-y: auto; background: #07080f; }
+
+    ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #24243a; border-radius: 4px; }
+    .page-footer { padding: 12px 24px; border-top: 1px solid var(--border, #1e1e2e); font-size: 0.68rem; color: #7d8da7; text-align: center; line-height: 1.8; }
+    .page-footer a { color: #7f8ea3; text-decoration: none; }
+    .page-footer a:hover { color: #cdd9e5; }
+
+    /* ── Melodie Shell ── */
+    :root { --mono: 'SF Mono','Fira Mono','Consolas',monospace; }
+    body { font-family: var(--mono); display: flex; flex-direction: column; }
+    html, body { height: 100%; }
+    nav { font-size: medium; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 60px; height: 68px; background: rgba(6,5,13,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 36px; }
+    .nav-link { font-size: 0.82em; color: #9488b4; text-decoration: none; transition: color 0.15s; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1; display: inline-flex; align-items: center; font-family: var(--mono); }
+    .nav-link:hover { color: #e8e2f8; }
+    .nav-link.active { color: #c084fc; }
+    .nav-cta { margin-left: 28px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.82em !important; transition: opacity 0.15s, transform 0.15s !important; }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+    .page { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; background: transparent; }
+  </style>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+</head>
+<body>
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="/static/logo-wordmark.png" alt="Melodie A11Y">
+  </a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link">Analysis</a>
+    <a href="/correcao"   class="nav-link">Correction</a>
+    <a href="/relatorios" class="nav-link">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"         class="nav-link">Log</a>
+    <a href="/teste"         class="nav-link">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+<div class="page">
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside>
+    <!-- Upload -->
+    <div>
+      <div class="sec-title">Violations report</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
+        <div class="uz-icon">📄</div>
+        <div class="uz-label"><strong>Click or drag</strong> the JSON file<br>downloaded from the analysis page</div>
+      </div>
+      <input type="file" id="fileInput" accept=".json" onchange="onFileSelect(event)">
+    </div>
+
+    <div id="reportPill" style="display:none;"></div>
+
+    <!-- Provider -->
+    <div id="llmSection" style="display:none; flex-direction:column; gap:12px;">
+      <div>
+        <div class="sec-title">LLM provider</div>
+        <div class="provider-grid" id="providerGrid">
+          <button class="prov-btn active" data-prov="openai"    onclick="selectProvider(this)"><div class="prov-name">OpenAI</div><div class="prov-sub">gpt-4o / gpt-4o-mini</div></button>
+          <button class="prov-btn"        data-prov="anthropic" onclick="selectProvider(this)"><div class="prov-name">Claude</div><div class="prov-sub">claude-sonnet-4-6</div></button>
+          <button class="prov-btn"        data-prov="groq"      onclick="selectProvider(this)"><div class="prov-name">Groq</div><div class="prov-sub">llama-3.3-70b</div></button>
+          <button class="prov-btn"        data-prov="custom"    onclick="selectProvider(this)"><div class="prov-name">Custom</div><div class="prov-sub">OpenAI-compatible</div></button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="modelInput">Model</label>
+        <input type="text" id="modelInput" value="gpt-4o-mini" placeholder="e.g. gpt-4o-mini">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="keyInput">API Key</label>
+        <input type="password" id="keyInput" placeholder="sk-...">
+      </div>
+
+      <div class="field-group" id="baseUrlGroup" style="display:none;">
+        <label class="field-label" for="baseUrlInput">Base URL</label>
+        <input type="url" id="baseUrlInput" placeholder="https://api.example.com/v1">
+      </div>
+
+      <button class="run-btn" id="runBtn" onclick="runFix()" disabled>Fix violations</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main>
+    <div class="panel-header">
+      <span class="panel-title" id="panelTitle">Upload a report to start</span>
+      <span class="status-badge s-idle" id="statusBadge" style="display:none;"></span>
+      <button class="hdr-btn" id="backToPreview" onclick="showPreview()" style="display:none;">View violations</button>
+      <button class="hdr-btn" id="clearBtn" onclick="clearResults()" style="display:none;">Clear</button>
+    </div>
+
+    <div id="emptyState" class="empty-state">
+      <div class="empty-title">No report loaded</div>
+      <div class="empty-sub">Upload the JSON file produced on the Analysis or CHASE 2027 page.</div>
+    </div>
+
+    <div id="previewPanel" class="vp-wrap" style="display:none;"></div>
+    <div id="outputPanel" class="output-wrap" style="display:none;"></div>
+    <div id="codePanel"   class="code-results" style="display:none;"></div>
+  </main>
+
+</div><!-- /.layout -->
+</div><!-- /.page -->
+
+<script>
+  const PROVIDER_DEFAULTS = {
+    openai:    { model: 'gpt-4o-mini',                  baseUrl: '' },
+    anthropic: { model: 'claude-sonnet-4-6',            baseUrl: '' },
+    groq:      { model: 'llama-3.3-70b-versatile',      baseUrl: '' },
+    custom:    { model: '',                              baseUrl: '' },
+  };
+
+  let reportData    = null;
+  let currentProv   = 'openai';
+  let running       = false;
+  let codeBlocks    = {};   // llm_name → corrected code
+
+  // ── Preload from sessionStorage (when coming from /relatorios) ───────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    try {
+      const stored = sessionStorage.getItem('fix_preload');
+      if (stored) {
+        sessionStorage.removeItem('fix_preload');
+        const { data, filename } = JSON.parse(stored);
+        reportData = data;
+        onReportLoaded(filename);
+      }
+    } catch(e) { /* ignore */ }
+  });
+
+  // ── Upload ───────────────────────────────────────────────────────────────────
+  function onDrag(e, active) { e.preventDefault(); document.getElementById('uploadZone').classList.toggle('drag', active); }
+
+  function onDrop(e) {
+    e.preventDefault();
+    onDrag(e, false);
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  }
+
+  function onFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) loadFile(file);
+  }
+
+  function loadFile(file) {
+    if (!file.name.endsWith('.json')) { alert('Select a .json file'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        reportData = JSON.parse(e.target.result);
+        onReportLoaded(file.name);
+      } catch { alert('Invalid JSON file.'); }
+    };
+    reader.readAsText(file);
+  }
+
+  function onReportLoaded(filename) {
+    const llms = reportData.llms || {};
+    let totalV = 0;
+    for (const entry of Object.values(llms))
+      if (entry.status === 'success')
+        totalV += (entry.accessibility_issues?.total || 0) + (entry.static_issues?.total || 0) + (entry.atf_issues?.total || 0);
+
+    const zone = document.getElementById('uploadZone');
+    zone.classList.add('loaded');
+    zone.querySelector('.uz-label').innerHTML = `<strong>${esc(filename)}</strong>`;
+
+    document.getElementById('reportPill').style.display = '';
+    document.getElementById('reportPill').innerHTML = `
+      <div class="report-pill">
+        <span class="rp-name">${esc(reportData.run_id || filename)}</span>
+        <span class="rp-v ${totalV === 0 ? 'rp-v-ok' : ''}">${totalV} violation${totalV !== 1 ? 's' : ''}</span>
+      </div>`;
+
+    document.getElementById('llmSection').style.display = 'flex';
+    document.getElementById('runBtn').disabled = totalV === 0;
+
+    buildPreview(llms);
+    showPreview();
+  }
+
+  function buildPreview(llms) {
+    const panel = document.getElementById('previewPanel');
+    panel.innerHTML = '';
+    const ts = reportData.timestamp ? new Date(reportData.timestamp).toLocaleString('pt-BR') : '';
+
+    if (ts || reportData.prompt) {
+      const info = document.createElement('div');
+      info.style.cssText = 'font-size:.74rem;color:var(--muted);margin-bottom:4px;';
+      info.textContent = [ts, (reportData.prompt||'').substring(0,80) + (reportData.prompt?.length>80?'…':'')].filter(Boolean).join(' · ');
+      panel.appendChild(info);
+    }
+
+    for (const [llm, entry] of Object.entries(llms)) {
+      if (entry.status !== 'success') continue;
+      const lintIssues   = entry.accessibility_issues?.issues || [];
+      const staticIssues = entry.static_issues?.issues        || [];
+      const atfIssues    = entry.atf_issues?.issues           || [];
+      const total = lintIssues.length + staticIssues.length + atfIssues.length;
+
+      const badgeClass = total === 0 ? 'vbadge-ok' : total > 5 ? 'vbadge-bad' : 'vbadge-mid';
+      const badgeLabel = total === 0 ? '✓ ok' : `${total}×`;
+
+      let items = '';
+      for (const i of lintIssues)   items += `<div class="vi"><span class="vtag vtag-l">LINT</span>${esc((i.message||i.id||'').substring(0,90))}</div>`;
+      for (const i of staticIssues) items += `<div class="vi"><span class="vtag vtag-s">STATIC</span>${esc((i.message||i.id||'').substring(0,90))}</div>`;
+      for (const i of atfIssues)    items += `<div class="vi"><span class="vtag vtag-a">ATF</span>${esc((i.message||i.check||'').substring(0,90))}</div>`;
+      if (!items) items = '<div class="vi" style="color:var(--muted)">No violations detected</div>';
+
+      const card = document.createElement('div');
+      card.className = 'vp-card';
+      card.innerHTML = `
+        <div class="vp-head"><span class="vp-name">${esc(llm)}</span><span class="vbadge ${badgeClass}">${badgeLabel}</span></div>
+        <div class="vp-body">${items}</div>`;
+      panel.appendChild(card);
+    }
+  }
+
+  // ── Provider selection ───────────────────────────────────────────────────────
+  function selectProvider(btn) {
+    document.querySelectorAll('.prov-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentProv = btn.dataset.prov;
+    const def = PROVIDER_DEFAULTS[currentProv];
+    if (def.model) document.getElementById('modelInput').value = def.model;
+    document.getElementById('baseUrlGroup').style.display = currentProv === 'custom' ? '' : 'none';
+  }
+
+  // ── Run correction ───────────────────────────────────────────────────────────
+  async function runFix() {
+    if (running || !reportData) return;
+    const apiKey  = document.getElementById('keyInput').value.trim();
+    const model   = document.getElementById('modelInput').value.trim();
+    const baseUrl = document.getElementById('baseUrlInput').value.trim();
+    if (!apiKey)  { alert('Enter the API key.'); return; }
+    if (!model)   { alert('Enter the model name.'); return; }
+    if (currentProv === 'custom' && !baseUrl) { alert('Enter the Base URL for the Custom provider.'); return; }
+
+    running = true;
+    codeBlocks = {};
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('runBtn').textContent = 'Fixing...';
+    setStatus('running', 'Running');
+
+    showOutput();
+
+    const out = document.getElementById('outputPanel');
+    out.innerHTML = '';
+    addLine(`Provedor: ${currentProv} · Modelo: ${model}`, 'status');
+    addLine('', 'empty');
+
+    try {
+      const resp = await fetch('/api/correct-general', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: currentProv, api_key: apiKey, model, base_url: baseUrl, report: reportData }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        addLine(`ERROR: ${err.detail || resp.statusText}`, 'err');
+        setStatus('error', 'Error'); done(); return;
+      }
+
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      let capturingLlm = null;
+      let capLines = [];
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        for (const part of parts) {
+          if (!part.startsWith('data:')) continue;
+          const text = part.slice(5).trim();
+
+          if (text === '__DONE__') {
+            addLine('', 'empty');
+            addLine('Correction finished.', 'ok');
+            setStatus('done', 'Done');
+            showCodeResults();
+            done(); return;
+          }
+
+          if (text.startsWith('CODE_START:')) {
+            capturingLlm = text.slice('CODE_START:'.length);
+            capLines = [];
+            addLine(`[Receiving code for: ${capturingLlm}]`, 'status');
+            continue;
+          }
+          if (text.startsWith('CODE_END:')) {
+            if (capturingLlm) codeBlocks[capturingLlm] = capLines.join('\n');
+            capturingLlm = null; capLines = [];
+            continue;
+          }
+
+          if (capturingLlm) { capLines.push(text); continue; }
+
+          if (text.startsWith('STATUS:')) {
+            addLine(text.slice(7), 'status');
+          } else {
+            addLine(text, 'ok');
+          }
+        }
+      }
+    } catch (e) {
+      addLine(`Connection error: ${e.message}`, 'err');
+      setStatus('error', 'Error');
+    }
+    done();
+
+    function done() {
+      running = false;
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('runBtn').textContent = 'Fix violations';
+    }
+  }
+
+  function showCodeResults() {
+    if (Object.keys(codeBlocks).length === 0) return;
+    const panel = document.getElementById('codePanel');
+    panel.innerHTML = '';
+
+    for (const [llm, code] of Object.entries(codeBlocks)) {
+      const card = document.createElement('div');
+      card.className = 'code-block-card';
+      card.innerHTML = `
+        <div class="cb-head">
+          <span class="cb-name">${esc(llm)} — corrected code</span>
+          <button class="dl-btn" onclick="downloadCode('${esc(llm)}')">Download .kt</button>
+        </div>
+        <div class="cb-code" id="cb-${esc(llm)}">${esc(code)}</div>`;
+      panel.appendChild(card);
+    }
+
+    document.getElementById('outputPanel').style.display = 'none';
+    document.getElementById('codePanel').style.display = '';
+    document.getElementById('backToPreview').style.display = '';
+    document.getElementById('clearBtn').style.display = '';
+    document.getElementById('panelTitle').textContent = 'Corrected code';
+  }
+
+  function downloadCode(llm) {
+    const code = codeBlocks[llm];
+    if (!code) return;
+    const blob = new Blob([code], { type: 'text/plain; charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${llm}_corrected.kt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── View helpers ─────────────────────────────────────────────────────────────
+  function showPreview() {
+    document.getElementById('emptyState').style.display    = 'none';
+    document.getElementById('outputPanel').style.display   = 'none';
+    document.getElementById('codePanel').style.display     = 'none';
+    document.getElementById('previewPanel').style.display  = '';
+    document.getElementById('backToPreview').style.display = 'none';
+    document.getElementById('clearBtn').style.display      = 'none';
+    document.getElementById('statusBadge').style.display   = 'none';
+    document.getElementById('panelTitle').textContent = 'Detected violations';
+  }
+
+  function showOutput() {
+    document.getElementById('emptyState').style.display   = 'none';
+    document.getElementById('previewPanel').style.display = 'none';
+    document.getElementById('codePanel').style.display    = 'none';
+    document.getElementById('outputPanel').style.display  = '';
+    document.getElementById('statusBadge').style.display  = '';
+    document.getElementById('clearBtn').style.display     = '';
+    document.getElementById('panelTitle').textContent = 'Correction output';
+  }
+
+  function clearResults() {
+    codeBlocks = {};
+    document.getElementById('codePanel').innerHTML = '';
+    showPreview();
+    setStatus('idle', '');
+  }
+
+  function addLine(text, cls) {
+    const out = document.getElementById('outputPanel');
+    const el  = document.createElement('span');
+    el.className = 'ln ln-' + (cls || 'ok');
+    el.textContent = text;
+    if (!text) el.classList.add('ln-empty');
+    out.appendChild(el);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  function setStatus(key, label) {
+    const el = document.getElementById('statusBadge');
+    el.className = 'status-badge s-' + key;
+    el.textContent = label;
+    el.style.display = key === 'idle' ? 'none' : '';
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Expose onclick handlers globally so they survive IIFE wrapping by SPA router
+  window.onDrag          = onDrag;
+  window.onDrop          = onDrop;
+  window.onFileSelect    = onFileSelect;
+  window.selectProvider  = selectProvider;
+  window.runFix          = runFix;
+  window.showPreview     = showPreview;
+  window.clearResults    = clearResults;
+  window.downloadCode    = downloadCode;
+</script>
+<script src="/static/js/router.js"></script>
+</body>
+</html>

@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>Analysis — Melodie A11Y</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --mono:           'SF Mono','Fira Mono','Consolas',monospace;
+      --sidebar-bg:     #0f0820;
+      --sidebar-border: #231545;
+      --accent:         #a855f7;
+      --accent-text:    #c084fc;   /* the accent as text color: 4.5:1+ on the dark panels */
+      --accent-hover:   #9333ea;
+      --accent-dim:     rgba(168,85,247,0.15);
+      --btn-disabled:   #2d1f4e;
+      --terminal-bg:    #080613;
+      --terminal-text:  #ddd6f3;
+      --label:          #9187ac;
+      --input-bg:       #130b24;
+      --input-border:   #301a55;
+      --header-bg:      #100821;
+      --header-border:  #231545;
+      --panel-bg:       #0e0720;
+      --panel-border:   #231545;
+    }
+
+    html { font-size: 93.75%; }
+    html, body { height: 100%; background: var(--terminal-bg); color: var(--terminal-text); }
+    body { font-family: var(--mono); display: flex; flex-direction: column; }
+
+    /* ── Sidebar ── */
+    aside {
+      width: clamp(280px, 21vw, 340px); min-width: 280px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      display: flex; flex-direction: column;
+    }
+    .aside-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 24px 20px; gap: 20px;
+      display: flex; flex-direction: column;
+      min-height: 0;
+    }
+    .aside-scroll::-webkit-scrollbar { width: 5px; }
+    .aside-scroll::-webkit-scrollbar-thumb { background: #2d1a4e; border-radius: 3px; }
+    .run-btn-wrap {
+      padding: 14px 20px 16px;
+      border-top: 1px solid var(--sidebar-border);
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+    }
+    .section-title { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--label); margin-bottom: 14px; font-family: var(--mono); }
+
+    .llm-badges { display: flex; flex-direction: column; gap: 6px; }
+    .llm-badge {
+      display: flex; align-items: center; gap: 14px;
+      font-size: 0.9rem; padding: 10px 13px; border-radius: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--sidebar-border);
+      cursor: pointer; transition: border-color 0.15s, background 0.15s; user-select: none;
+    }
+    .llm-badge:hover:not(.unavailable) { background: rgba(168,85,247,0.08); border-color: rgba(168,85,247,0.3); }
+    .llm-badge.selected   { border-color: rgba(168,85,247,0.5); background: rgba(168,85,247,0.07); }
+    .llm-badge.unavailable { opacity: 0.35; cursor: not-allowed; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .dot-on  { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .dot-off { background: #2d3748; }
+    .llm-name { flex: 1; color: #c4b8e0; font-size: 0.92rem; font-family: var(--mono); }
+    .llm-tag  { font-size: 0.76rem; color: var(--label); }
+    .llm-check {
+      width: 18px; height: 18px; border-radius: 4px;
+      border: 1.5px solid #2d3748; background: transparent;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 0.66rem; color: #060010;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .llm-badge.selected .llm-check { background: var(--accent); border-color: var(--accent); }
+    button.llm-badge { width: 100%; text-align: left; font: inherit; color: inherit; }
+    button.llm-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .llm-item.selected .llm-badge { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .llm-details {
+      display: none; flex-direction: column; gap: 8px; padding: 12px 13px 13px;
+      border: 1px solid rgba(168,85,247,0.5); border-top: none; border-radius: 0 0 8px 8px;
+      background: rgba(168,85,247,0.04);
+    }
+    .llm-item.selected .llm-details { display: flex; }
+    .llm-details label { font-size: 0.7rem; }
+    .llm-details input {
+      width: 100%; background: var(--input-bg); border: 1px solid var(--input-border);
+      color: #c4b8e0; border-radius: 6px; padding: 8px 10px; font-size: 0.8rem; font-family: var(--mono);
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .llm-details input:focus { border-color: rgba(168,85,247,0.6); box-shadow: 0 0 0 3px rgba(168,85,247,0.1); }
+    .llm-details input.missing { border-color: #f87171; }
+    .llm-key-row { display: flex; gap: 6px; }
+    .llm-key-row input { flex: 1; min-width: 0; }
+    .llm-key-toggle {
+      flex-shrink: 0; background: transparent; border: 1px solid var(--input-border); color: var(--label);
+      border-radius: 6px; padding: 0 9px; font-size: 0.7rem; cursor: pointer; font-family: var(--mono);
+    }
+    .llm-key-toggle:hover { color: #c4b8e0; }
+    .llm-hint { font-size: 0.7rem; color: var(--label); line-height: 1.5; }
+    .llm-hint a { color: #c084fc; }
+
+    /* run-btn is a direct aside child so prompt-section (flex:1) fills the gap and
+       the button sits at the bottom of the sidebar, adjacent to the page footer */
+    .prompt-section { display: flex; flex-direction: column; gap: 14px; }
+    label { font-size: 0.78rem; color: var(--label); letter-spacing: 0.05em; text-transform: uppercase; font-family: var(--mono); }
+    select, textarea {
+      width: 100%; background: var(--input-bg); border: 1px solid var(--input-border);
+      color: #c4b8e0; border-radius: 8px; padding: 11px 14px; font-size: 0.9rem;
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s; font-family: var(--mono);
+    }
+    select:focus, textarea:focus { border-color: rgba(168,85,247,0.6); box-shadow: 0 0 0 3px rgba(168,85,247,0.1); }
+    select { cursor: pointer; height: 44px; padding: 0 14px; }
+    textarea { resize: none; font-size: 0.85rem; line-height: 1.65; min-height: 130px; }
+
+    .fixed-block { border: 1px solid var(--sidebar-border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+    .fixed-toggle { width: 100%; background: rgba(255,255,255,0.03); border: none; color: var(--label); font-size: 0.78rem; padding: 11px 14px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 7px; transition: color 0.15s; font-family: var(--mono); }
+    .fixed-toggle:hover { color: #c4b8e0; }
+    .fixed-toggle .arrow { margin-left: auto; font-size: 0.6rem; }
+    .fixed-content { display: none; background: #06040f; color: #748fa6; font-family: var(--mono); font-size: 0.68rem; line-height: 1.65; padding: 11px 14px; white-space: pre-wrap; border-top: 1px solid var(--sidebar-border); user-select: none; }
+
+    /* ── Shot mode toggle ── */
+    .shot-toggle { display: flex; gap: 0; border: 1px solid var(--input-border); border-radius: 8px; overflow: hidden; flex-shrink: 0; height: 44px; }
+    .shot-btn { flex: 1; padding: 0; font-size: 0.8rem; font-weight: 600; border: none; cursor: pointer; transition: background 0.15s, color 0.15s; background: var(--input-bg); color: var(--label); letter-spacing: 0.04em; font-family: var(--mono); text-transform: uppercase; }
+    .shot-btn.active { background: rgba(168,85,247,0.12); color: var(--accent-text); }
+    .shot-btn:first-child { border-right: 1px solid var(--input-border); }
+
+    /* ── Few-shot block ── */
+    .fewshot-block { border: 1px solid #1a3a2a; border-radius: 8px; overflow: hidden; flex-shrink: 0; display: none; flex-direction: column; }
+    .fewshot-block.open { display: flex; }
+    .fewshot-header { background: #0a1a10; padding: 10px 14px; font-size: 0.74rem; color: #4ade80; font-weight: 600; display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); }
+    .fewshot-header small { color: var(--label); font-weight: 400; font-size: 0.67rem; line-height: 1.4; }
+    .fewshot-block textarea { border: none; border-top: 1px solid #1a3a2a; border-radius: 0; min-height: 120px; flex: none; resize: vertical; font-size: 0.8rem; }
+
+    /* ── Runs control ── */
+    .runs-row { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .runs-label { font-size: 0.74rem; color: var(--label); flex-shrink: 0; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); }
+    .runs-toggle { display: flex; gap: 0; border: 1px solid var(--input-border); border-radius: 8px; overflow: hidden; flex: 1; height: 44px; }
+    .runs-btn { flex: 1; padding: 0; font-size: 0.8rem; font-weight: 700; border: none; border-right: 1px solid var(--input-border); cursor: pointer; transition: background 0.15s, color 0.15s; background: var(--input-bg); color: var(--label); font-family: var(--mono); }
+    .runs-btn:last-child { border-right: none; }
+    .runs-btn.active { background: rgba(168,85,247,0.12); color: var(--accent-text); }
+
+    /* ── Self-repair toggle ── */
+    .repair-btn {
+      width: 100%; padding: 12px 14px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; font-weight: 600;
+      border: 1px solid var(--input-border); border-radius: 8px;
+      cursor: pointer; transition: all 0.15s;
+      background: var(--input-bg); color: var(--label); font-family: var(--mono);
+    }
+    .repair-btn:hover { border-color: rgba(168,85,247,0.4); color: #c4b8e0; }
+    .repair-btn.active { background: rgba(168,85,247,0.08); border-color: rgba(168,85,247,0.5); color: var(--accent-text); }
+    .repair-pill {
+      margin-left: auto; font-size: 0.64rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 99px; letter-spacing: 0.06em;
+      background: #1a1a30; color: #808d9f; transition: all 0.15s;
+    }
+    .repair-btn.active .repair-pill { background: rgba(168,85,247,0.2); color: var(--accent-text); }
+
+    .run-btn { width: 100%; padding: 15px; background: linear-gradient(135deg,#6d28d9,#a855f7); color: #fff; font-weight: 700; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s, transform 0.1s; letter-spacing: 0.06em; font-family: var(--mono); }
+    .run-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    .run-btn:disabled { background: var(--btn-disabled); color: #808d9f; cursor: not-allowed; transform: none; opacity: 1; }
+
+    /* ── Aggregate run dots ── */
+    .run-dots-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .run-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; cursor: default; }
+    .run-dot-ok   { background: var(--accent); box-shadow: 0 0 4px var(--accent); }
+    .run-dot-fail { background: #f87171; }
+    .cs-partial { background: #2a1a00; color: #fbbf24; }
+
+    /* ── Layout ── */
+    .layout { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+    main { flex: 1; display: flex; flex-direction: row; overflow: hidden; min-width: 0; }
+    .terminal-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    .output-header { display: flex; flex-wrap: wrap; row-gap: 8px; align-items: center; gap: 10px; padding: 10px 18px; background: var(--header-bg); border-bottom: 1px solid var(--header-border); font-size: 0.8rem; flex-shrink: 0; font-family: var(--mono); }
+    .output-header .title { color: var(--label); text-transform: uppercase; letter-spacing: 0.1em; flex-shrink: 0; }
+    .hdr-sep { width: 1px; height: 16px; background: var(--sidebar-border); flex-shrink: 0; margin: 0 4px; }
+    .hdr-instr-btn { display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.03); border: 1px solid var(--sidebar-border); border-radius: 5px; color: var(--label); font-size: 0.7rem; padding: 4px 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s; font-family: var(--mono); white-space: nowrap; flex-shrink: 0; }
+    .hdr-instr-btn:hover { color: #c4b8e0; border-color: rgba(168,85,247,0.3); }
+    .hdr-runs { display: flex; gap: 0; border: 1px solid var(--input-border); border-radius: 5px; overflow: hidden; flex-shrink: 0; height: 26px; }
+    .hdr-run-btn { padding: 0 9px; font-size: 0.7rem; font-weight: 700; border: none; border-right: 1px solid var(--input-border); cursor: pointer; background: var(--input-bg); color: var(--label); font-family: var(--mono); transition: background 0.15s, color 0.15s; }
+    .hdr-run-btn:last-child { border-right: none; }
+    .hdr-run-btn.active { background: rgba(168,85,247,0.12); color: var(--accent-text); }
+    .hdr-retry-btn { display: flex; align-items: center; gap: 6px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 5px; color: var(--label); font-size: 0.7rem; padding: 4px 10px; cursor: pointer; transition: all 0.15s; font-family: var(--mono); white-space: nowrap; flex-shrink: 0; }
+    .hdr-retry-btn:hover { border-color: rgba(168,85,247,0.4); color: #c4b8e0; }
+    .hdr-retry-btn.active { background: rgba(168,85,247,0.08); border-color: rgba(168,85,247,0.5); color: var(--accent-text); }
+    .hdr-retry-pill { font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: #1a1a30; color: #808d9f; transition: all 0.15s; }
+    .hdr-retry-btn.active .hdr-retry-pill { background: rgba(168,85,247,0.2); color: var(--accent-text); }
+    .hdr-spacer { flex: 1; }
+    .hdr-runs-label { font-size: 0.68rem; color: var(--label); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; flex-shrink: 0; }
+    .status-badge { padding: 3px 10px; border-radius: 99px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); }
+    .s-idle    { background: rgba(255,255,255,0.05); color: #808d9f; }
+    .s-running { background: rgba(168,85,247,0.15); color: var(--accent-text); }
+    .s-done    { background: rgba(52,211,153,0.12); color: #34d399; }
+    .s-error   { background: rgba(248,113,113,0.12); color: #f87171; }
+
+    .clear-btn { background: none; border: 1px solid var(--sidebar-border); color: var(--label); padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.68rem; transition: color 0.15s, border-color 0.15s; font-family: var(--mono); }
+    .clear-btn:hover { color: #c4b8e0; border-color: rgba(168,85,247,0.4); }
+    .fixed-content-bar { background: #06040f; color: #748fa6; font-family: var(--mono); font-size: 0.68rem; line-height: 1.65; padding: 10px 22px; white-space: pre; border-bottom: 1px solid var(--header-border); user-select: none; flex-shrink: 0; }
+
+    #output { flex: 1; overflow-y: auto; padding: 18px 22px; font-family: var(--mono); font-size: 0.88rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .ln { display: block; }
+    .ln-empty  { min-height: 1em; }
+    .ln-sep    { color: #768eac; }
+    .ln-ok     { color: #4ade80; }
+    .ln-err    { color: #f87171; }
+    .ln-warn   { color: #fbbf24; }
+    .ln-info   { color: #60a5fa; }
+    .ln-normal { color: var(--terminal-text); }
+    .cursor { display: inline-block; width: 0.5em; height: 1.1em; background: var(--accent); animation: blink 1s step-end infinite; vertical-align: text-bottom; border-radius: 1px; }
+    @keyframes blink { 50% { opacity: 0; } }
+    #output::-webkit-scrollbar { width: 6px; }
+    #output::-webkit-scrollbar-track { background: transparent; }
+    #output::-webkit-scrollbar-thumb { background: #2d1a4e; border-radius: 3px; }
+
+    /* ── Report Panel ── */
+    .report-panel {
+      width: 0; overflow: hidden;
+      border-left: 1px solid var(--panel-border);
+      background: var(--panel-bg);
+      display: flex; flex-direction: column;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      flex-shrink: 0;
+    }
+    .report-panel.open { width: clamp(300px, 24vw, 380px); }
+
+    .rp-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 14px; background: var(--header-bg);
+      border-bottom: 1px solid var(--panel-border); flex-shrink: 0;
+    }
+    .rp-title { font-size: 0.74rem; font-weight: 700; color: #c4b8e0; flex: 1; text-transform: uppercase; letter-spacing: 0.1em; font-family: var(--mono); }
+    .rp-run-id { font-size: 0.63rem; color: var(--label); font-family: var(--mono); }
+    .rp-close { background: none; border: none; color: #808d9f; cursor: pointer; font-size: 0.88rem; padding: 2px 6px; border-radius: 3px; transition: color 0.15s; }
+    .rp-close:hover { color: #c4b8e0; }
+
+    .rp-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .rp-body::-webkit-scrollbar { width: 4px; }
+    .rp-body::-webkit-scrollbar-thumb { background: #2d1a4e; border-radius: 2px; }
+
+    /* LLM cards */
+    .llm-card { background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; }
+    .llm-card-header { display: flex; align-items: center; padding: 10px 13px; gap: 10px; border-bottom: 1px solid var(--panel-border); }
+    .llm-card-name { font-size: 0.76rem; font-weight: 700; color: #c4b8e0; flex: 1; letter-spacing: 0.08em; font-family: var(--mono); }
+    .card-status { font-size: 0.62rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; letter-spacing: 0.05em; font-family: var(--mono); }
+    .cs-success  { background: rgba(74,222,128,0.1); color: #4ade80; }
+    .cs-failed   { background: rgba(248,113,113,0.1); color: #f87171; }
+    .cs-genfail  { background: rgba(251,146,60,0.1); color: #fb923c; }
+
+    .llm-card-body { padding: 11px 13px; display: flex; flex-direction: column; gap: 9px; }
+
+    .issue-row { display: flex; align-items: baseline; gap: 6px; font-size: 0.72rem; font-family: var(--mono); }
+    .issue-source { font-size: 0.6rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.06em; flex-shrink: 0; font-family: var(--mono); }
+    .src-lint { background: rgba(129,140,248,0.15); color: #818cf8; }
+    .src-atf  { background: rgba(74,222,128,0.1); color: #4ade80; }
+    .issue-count { font-weight: 700; color: #c4b8e0; flex-shrink: 0; min-width: 16px; }
+    .issue-count.zero { color: #7d8da7; }
+    .issue-tags { color: var(--label); font-size: 0.66rem; line-height: 1.5; }
+    .issue-tags .tag { display: inline-block; background: rgba(110,231,183,0.1); color: #6ee7b7; padding: 1px 5px; border-radius: 3px; margin: 1px 2px 1px 0; font-size: 0.62rem; }
+    .issue-tags .tag.warn { background: rgba(251,191,36,0.1); color: #fbbf24; }
+    .issue-tags .tag.err  { background: rgba(248,113,113,0.1); color: #f87171; }
+
+    .error-msg { font-size: 0.67rem; color: #f87171; background: rgba(248,113,113,0.06); border-radius: 5px; padding: 7px 9px; font-family: var(--mono); line-height: 1.5; word-break: break-all; border: 1px solid rgba(248,113,113,0.15); }
+
+    /* Code viewer */
+    .code-section { border-top: 1px solid var(--panel-border); margin-top: 4px; }
+    .code-toggle {
+      list-style: none; cursor: pointer; padding: 7px 12px;
+      font-size: 0.68rem; color: var(--label); display: flex; align-items: center; gap: 5px;
+      user-select: none; transition: color 0.15s; font-family: var(--mono);
+    }
+    .code-toggle:hover { color: #c4b8e0; }
+    .code-toggle::marker, .code-toggle::-webkit-details-marker { display: none; }
+    .code-toggle::before { content: '▶'; font-size: 0.52rem; transition: transform 0.2s; }
+    details[open] > .code-toggle::before { transform: rotate(90deg); }
+    .code-wrapper { position: relative; padding: 0 11px 10px; }
+    .code-pre {
+      background: #040810; border: 1px solid var(--sidebar-border); border-radius: 5px;
+      padding: 10px; overflow: auto; max-height: 280px;
+      font-family: var(--mono); font-size: 0.62rem; line-height: 1.55; color: #9aacbf;
+      white-space: pre; tab-size: 4;
+    }
+    .copy-btn {
+      position: absolute; top: 6px; right: 17px; z-index: 1;
+      background: var(--input-bg); border: 1px solid var(--sidebar-border); border-radius: 4px;
+      color: var(--label); font-size: 0.6rem; padding: 2px 7px; cursor: pointer;
+      transition: background 0.15s, color 0.15s; font-family: var(--mono);
+    }
+    .copy-btn:hover { background: rgba(168,85,247,0.1); color: #c4b8e0; }
+    .copy-btn.copied { color: var(--accent-text); }
+
+    /* Timing bar */
+    .timing-section { margin-top: 2px; }
+    .timing-bar { height: 5px; border-radius: 3px; overflow: hidden; display: flex; background: rgba(0,0,0,0.3); }
+    .tb-gen   { background: #3b82f6; }
+    .tb-build { background: #f59e0b; }
+    .tb-lint  { background: #8b5cf6; }
+    .tb-atf   { background: #10b981; }
+    .timing-labels { display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
+    .tl-item { font-size: 0.6rem; color: var(--label); display: flex; align-items: center; gap: 3px; font-family: var(--mono); }
+    .tl-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .tl-gen   { background: #3b82f6; }
+    .tl-build { background: #f59e0b; }
+    .tl-lint  { background: #8b5cf6; }
+    .tl-atf   { background: #10b981; }
+
+    /* Comparative chart */
+    .chart-section { background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; }
+    .chart-title { font-size: 0.66rem; font-weight: 700; color: var(--label); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.1em; font-family: var(--mono); }
+    .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-label { font-size: 0.67rem; color: #94a3b8; width: 56px; text-align: right; flex-shrink: 0; font-family: var(--mono); }
+    .bar-track { flex: 1; height: 14px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; display: flex; }
+    .bar-lint { background: #818cf8; height: 100%; transition: width 0.6s ease; }
+    .bar-atf  { background: #4ade80; height: 100%; transition: width 0.6s ease; }
+    .bar-fail { background: rgba(55,65,81,0.5); height: 100%; width: 100%; display: flex; align-items: center; padding: 0 6px; }
+    .bar-fail-label { font-size: 0.58rem; color: #808d9f; font-family: var(--mono); }
+    .bar-value { font-size: 0.68rem; color: #c4b8e0; font-weight: 700; width: 24px; flex-shrink: 0; font-family: var(--mono); }
+
+    .chart-legend { display: flex; gap: 12px; margin-top: 10px; }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.62rem; color: var(--label); font-family: var(--mono); }
+    .legend-dot { width: 7px; height: 7px; border-radius: 2px; }
+
+    /* ── Melodie Shell ── */
+    nav { font-size: medium; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 60px; height: 68px; background: rgba(6,5,13,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--sidebar-border); flex-shrink: 0; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 36px; }
+    .nav-link { font-size: 0.82em; color: #9488b4; text-decoration: none; transition: color 0.15s; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1; display: inline-flex; align-items: center; font-family: var(--mono); }
+    .nav-link:hover { color: #e8e2f8; }
+    .nav-link.active { color: #c084fc; }
+    .nav-cta { margin-left: 28px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.82em !important; transition: opacity 0.15s, transform 0.15s !important; }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+    .page { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; background: transparent; }
+  </style>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+</head>
+<body>
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="/static/logo-wordmark.png" alt="Melodie A11Y">
+  </a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link active">Analysis</a>
+    <a href="/correcao"   class="nav-link">Correction</a>
+    <a href="/relatorios" class="nav-link">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"         class="nav-link">Log</a>
+    <a href="/teste"         class="nav-link">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+<div class="page">
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside>
+    <div class="aside-scroll">
+      <div>
+        <p class="section-title">LLMs</p>
+        <div class="llm-badges" id="llmBadges">
+          <div class="llm-badge"><div class="dot dot-off"></div><span class="llm-name">Loading...</span></div>
+        </div>
+      </div>
+
+      <div class="prompt-section">
+        <p class="section-title">Prompt</p>
+        <label for="promptSelect">Preset prompts</label>
+        <select id="promptSelect">
+          <option value="">— custom prompt —</option>
+        </select>
+        <!-- Zero-shot / Few-shot toggle -->
+        <div class="shot-toggle">
+          <button class="shot-btn active" id="shotZero" type="button">Zero-shot</button>
+          <button class="shot-btn"        id="shotFew"  type="button">Few-shot</button>
+        </div>
+
+        <label for="promptText">Describe the screen to generate</label>
+        <textarea id="promptText" spellcheck="false" placeholder="Ex: Generate a complete Android registration screen in Kotlin.&#10;&#10;Requirements:&#10;- Name, email and password fields&#10;- A &quot;Register&quot; button that validates the form"></textarea>
+
+        <!-- Few-shot examples block (shown only when few-shot selected) -->
+        <div class="fewshot-block" id="fewshotBlock">
+          <div class="fewshot-header">
+            📎 Few-shot examples
+            <small>Code examples or patterns the LLM should follow</small>
+          </div>
+          <textarea id="fewshotText" spellcheck="false"
+            placeholder="Example 1 — accessible login screen:
+[code or description of the example]
+
+Example 2 — ..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="run-btn-wrap">
+      <button class="run-btn" id="runBtn">▶ Run Pipeline</button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Terminal -->
+    <div class="terminal-section">
+      <div class="output-header">
+        <span class="title">Pipeline Output</span>
+        <div class="hdr-sep"></div>
+        <button class="hdr-instr-btn" id="fixedToggle" type="button">
+          🔒 Fixed instructions <span id="fixedArrow">▸</span>
+        </button>
+        <div class="hdr-sep"></div>
+        <span class="hdr-runs-label">No. of runs</span>
+        <div class="hdr-runs" id="runsToggle">
+          <button class="hdr-run-btn active" data-runs="1">1×</button>
+          <button class="hdr-run-btn" data-runs="3">3×</button>
+          <button class="hdr-run-btn" data-runs="5">5×</button>
+          <button class="hdr-run-btn" data-runs="10">10×</button>
+        </div>
+        <div class="hdr-sep"></div>
+        <button class="hdr-retry-btn" id="repairBtn" type="button" title="Sends the code + compilation errors back to the source LLM for automatic repair (up to 2 attempts)">
+          ↩ Retry <span class="hdr-retry-pill" id="repairPill">OFF</span>
+        </button>
+        <div class="hdr-spacer"></div>
+        <span class="status-badge s-idle" id="statusBadge">idle</span>
+        <button class="clear-btn" id="clearBtn">Clear</button>
+      </div>
+      <div class="fixed-content-bar" id="fixedContent" style="display:none">— added automatically to your prompt —&#10;&#10;• Package name: com.accessibility.test&#10;• Use ViewBinding (ActivityMainBinding)&#10;• Use Android View system (NOT Jetpack Compose)&#10;• Return kotlin + xml blocks per layout&#10;• No explanation outside the code blocks</div>
+      <div id="output"></div>
+    </div>
+
+    <!-- Report Panel -->
+    <div class="report-panel" id="reportPanel">
+      <div class="rp-header">
+        <span class="rp-title">Report</span>
+        <span class="rp-run-id" id="rpRunId"></span>
+        <button class="rp-close" id="rpClose" title="Close" aria-label="Close">✕</button>
+      </div>
+      <div class="rp-body" id="rpBody"></div>
+    </div>
+
+  </main>
+</div><!-- /.layout -->
+</div><!-- /.page -->
+
+<script>
+  const outputEl    = document.getElementById('output');
+  const runBtn      = document.getElementById('runBtn');
+  const clearBtn    = document.getElementById('clearBtn');
+  const statusBadge = document.getElementById('statusBadge');
+  const promptSel   = document.getElementById('promptSelect');
+  const promptText  = document.getElementById('promptText');
+  const fewshotText = document.getElementById('fewshotText');
+  const fewshotBlock = document.getElementById('fewshotBlock');
+  const shotZero    = document.getElementById('shotZero');
+  const shotFew     = document.getElementById('shotFew');
+  let isFewShot = false;
+
+  shotZero.addEventListener('click', () => {
+    isFewShot = false;
+    shotZero.classList.add('active'); shotFew.classList.remove('active');
+    fewshotBlock.classList.remove('open');
+  });
+  shotFew.addEventListener('click', () => {
+    isFewShot = true;
+    shotFew.classList.add('active'); shotZero.classList.remove('active');
+    fewshotBlock.classList.add('open');
+  });
+  const llmBadges   = document.getElementById('llmBadges');
+  const reportPanel = document.getElementById('reportPanel');
+  const rpRunId     = document.getElementById('rpRunId');
+  const rpBody      = document.getElementById('rpBody');
+  const rpClose     = document.getElementById('rpClose');
+  const runsToggle  = document.getElementById('runsToggle');
+
+  let cursorEl   = null;
+  let autoScroll = true;
+  let nRuns      = 1;
+  let selfRepair = false;
+  const selectedLLMs = new Set();
+
+  const repairBtn  = document.getElementById('repairBtn');
+  const repairPill = document.getElementById('repairPill');
+  repairBtn.addEventListener('click', () => {
+    selfRepair = !selfRepair;
+    repairBtn.classList.toggle('active', selfRepair);
+    repairPill.textContent = selfRepair ? 'ON' : 'OFF';
+    repairPill.style.background = selfRepair ? 'rgba(168,85,247,0.2)' : '';
+    repairPill.style.color = selfRepair ? 'var(--accent)' : '';
+  });
+
+  runsToggle.querySelectorAll('.hdr-run-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      runsToggle.querySelectorAll('.hdr-run-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      nRuns = parseInt(btn.dataset.runs, 10);
+    });
+  });
+
+  // ── Auto-scroll ────────────────────────────────────────
+  outputEl.addEventListener('scroll', () => {
+    autoScroll = outputEl.scrollHeight - outputEl.scrollTop <= outputEl.clientHeight + 50;
+  });
+  function scrollBottom() { if (autoScroll) outputEl.scrollTop = outputEl.scrollHeight; }
+
+  // ── Status badge ───────────────────────────────────────
+  function setStatus(state) {
+    const map = { idle: ['s-idle','idle'], running: ['s-running','running…'], done: ['s-done','done'], error: ['s-error','error'] };
+    const [cls, label] = map[state] || ['s-idle', state];
+    statusBadge.className = 'status-badge ' + cls;
+    statusBadge.textContent = label;
+  }
+
+  // ── Cursor ─────────────────────────────────────────────
+  function showCursor() {
+    if (cursorEl) return;
+    cursorEl = document.createElement('span');
+    cursorEl.className = 'cursor';
+    outputEl.appendChild(cursorEl);
+    scrollBottom();
+  }
+  function removeCursor() { if (cursorEl) { cursorEl.remove(); cursorEl = null; } }
+
+  // ── Line classifier ────────────────────────────────────
+  function lineClass(text) {
+    if (!text.trim()) return 'ln-empty';
+    if (/^[=\-─]+$/.test(text.trim()) || text.includes('====') || text.includes('────')) return 'ln-sep';
+    if (/\[REPAIR/.test(text)) return 'ln-info';
+    if (/APK built|Pipeline complete|extracted|\[OK\]/.test(text)) return 'ln-ok';
+    if (/\[FAIL\]|Build failed|FAILED|Error:|error:|Fatal/.test(text)) return 'ln-err';
+    if (/\[WARN\]|Warning|HardcodedText|ContentDescription/.test(text)) return 'ln-warn';
+    return 'ln-normal';
+  }
+  function appendLine(text) {
+    removeCursor();
+    const span = document.createElement('span');
+    span.className = 'ln ' + lineClass(text);
+    span.textContent = text === '' ? ' ' : text;
+    outputEl.appendChild(span);
+    scrollBottom();
+  }
+
+  // ── LLM selection ──────────────────────────────────────
+  // Clicking an LLM selects it and opens its settings. What is typed here goes to the
+  // pipeline with the run (as env vars of that process) and is kept only in this tab's
+  // sessionStorage; an empty field falls back to the .env value or the default model.
+  const LLM_INFO = [
+    { key: 'gemini',    name: 'Gemini',           tag: 'free',     model: 'gemini-2.5-pro',          keyUrl: 'https://aistudio.google.com/apikey' },
+    { key: 'groq',      name: 'Groq',             tag: 'free',     model: 'llama-3.3-70b-versatile', keyUrl: 'https://console.groq.com/keys' },
+    { key: 'deepseek',  name: 'DeepSeek',         tag: 'credits',  model: 'deepseek-coder',          keyUrl: 'https://platform.deepseek.com/api_keys' },
+    { key: 'xai',       name: 'xAI Grok',         tag: 'credits',  model: 'grok-3-mini',             keyUrl: 'https://console.x.ai' },
+    { key: 'openai',    name: 'OpenAI',           tag: 'paid',     model: 'gpt-4.5',                 keyUrl: 'https://platform.openai.com/api-keys' },
+    { key: 'anthropic', name: 'Anthropic Claude', tag: 'paid',     model: 'claude-sonnet-4-6',       keyUrl: 'https://console.anthropic.com/settings/keys' },
+    { key: 'ollama',    name: 'Ollama',           tag: 'local',    local: true },
+  ];
+  const LLM_STORE = 'melodie.llms';
+  let envLLMs = {};
+  const llmItems = {};
+
+  function readLLMStore() {
+    try { return JSON.parse(sessionStorage.getItem(LLM_STORE)) || {}; } catch { return {}; }
+  }
+  function saveLLMStore() {
+    const data = {};
+    for (const [key, item] of Object.entries(llmItems)) {
+      data[key] = { selected: selectedLLMs.has(key), fields: readFields(item) };
+    }
+    try { sessionStorage.setItem(LLM_STORE, JSON.stringify(data)); } catch {}
+  }
+  function readFields(item) {
+    const fields = {};
+    item.querySelectorAll('[data-field]').forEach(inp => { fields[inp.dataset.field] = inp.value.trim(); });
+    return fields;
+  }
+  function hasKey(key) {
+    const item = llmItems[key];
+    if (LLM_INFO.find(l => l.key === key).local) return true;
+    return !!envLLMs[key] || !!item.querySelector('[data-field="api_key"]').value.trim();
+  }
+  function refreshDot(key) {
+    const dot = llmItems[key].querySelector('.dot');
+    const on = key === 'ollama' ? !!envLLMs.ollama : hasKey(key);
+    dot.className = 'dot ' + (on ? 'dot-on' : 'dot-off');
+  }
+  function setSelected(key, on) {
+    const item = llmItems[key];
+    on ? selectedLLMs.add(key) : selectedLLMs.delete(key);
+    item.classList.toggle('selected', on);
+    const badge = item.querySelector('.llm-badge');
+    badge.classList.toggle('selected', on);
+    badge.setAttribute('aria-expanded', on ? 'true' : 'false');
+    badge.querySelector('.llm-check').textContent = on ? '✓' : '';
+  }
+
+  function getSelectedLLMs() { return LLM_INFO.map(l => l.key).filter(k => selectedLLMs.has(k)); }
+  function getCredentials() {
+    const creds = {};
+    getSelectedLLMs().forEach(k => {
+      const fields = Object.fromEntries(Object.entries(readFields(llmItems[k])).filter(([, v]) => v));
+      if (Object.keys(fields).length) creds[k] = fields;
+    });
+    return creds;
+  }
+  // returns the names of selected LLMs that still need an API key, marking their fields
+  function missingKeys() {
+    const missing = [];
+    getSelectedLLMs().forEach(k => {
+      const inp = llmItems[k].querySelector('[data-field="api_key"]');
+      const miss = !hasKey(k);
+      if (inp) inp.classList.toggle('missing', miss);
+      if (miss) missing.push(LLM_INFO.find(l => l.key === k).name);
+    });
+    return missing;
+  }
+
+  function buildLLMItem(l, saved, ollamaDefaults) {
+    const item = document.createElement('div');
+    item.className = 'llm-item';
+    const id = 'llm-' + l.key;
+    const detailsHtml = l.local ? `
+        <label for="${id}-url">Server URL</label>
+        <input id="${id}-url" data-field="base_url" type="text" spellcheck="false" autocomplete="off" placeholder="${ollamaDefaults.base_url}">
+        <label for="${id}-model">Model</label>
+        <input id="${id}-model" data-field="model" type="text" spellcheck="false" autocomplete="off" placeholder="${ollamaDefaults.model}">
+        <p class="llm-hint">Runs on your machine, no key needed.${envLLMs.ollama ? '' : ' Server not found right now; start Ollama before running.'}</p>` : `
+        <label for="${id}-key">API key</label>
+        <div class="llm-key-row">
+          <input id="${id}-key" data-field="api_key" type="password" spellcheck="false" autocomplete="off"
+            placeholder="${envLLMs[l.key] ? 'key from .env' : 'paste your key'}">
+          <button type="button" class="llm-key-toggle" aria-controls="${id}-key" aria-pressed="false">mostrar</button>
+        </div>
+        <label for="${id}-model">Model</label>
+        <input id="${id}-model" data-field="model" type="text" spellcheck="false" autocomplete="off" placeholder="${l.model}">
+        <p class="llm-hint">Leave blank to use ${envLLMs[l.key] ? 'the .env key and ' : ''}the default model. <a href="${l.keyUrl}" target="_blank" rel="noopener">Get a key</a></p>`;
+    item.innerHTML = `
+      <button type="button" class="llm-badge" aria-expanded="false" aria-controls="${id}-details">
+        <div class="dot dot-off"></div>
+        <span class="llm-name">${l.name}</span>
+        <span class="llm-tag">${l.tag}</span>
+        <div class="llm-check"></div>
+      </button>
+      <div class="llm-details" id="${id}-details">${detailsHtml}</div>`;
+    llmItems[l.key] = item;
+
+    item.querySelectorAll('[data-field]').forEach(inp => {
+      if (saved && saved.fields && saved.fields[inp.dataset.field]) inp.value = saved.fields[inp.dataset.field];
+      inp.addEventListener('input', () => { inp.classList.remove('missing'); refreshDot(l.key); saveLLMStore(); });
+    });
+    const toggle = item.querySelector('.llm-key-toggle');
+    if (toggle) toggle.addEventListener('click', () => {
+      const inp = item.querySelector('[data-field="api_key"]');
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      toggle.textContent = show ? 'ocultar' : 'mostrar';
+      toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+    });
+    item.querySelector('.llm-badge').addEventListener('click', () => {
+      const on = !selectedLLMs.has(l.key);
+      setSelected(l.key, on);
+      if (on) { const first = item.querySelector('[data-field]'); if (first) first.focus(); }
+      saveLLMStore();
+    });
+    return item;
+  }
+
+  async function loadStatus() {
+    try {
+      const status = await fetch('/api/status').then(r => r.json());
+      envLLMs = status.llms || {};
+      const ollamaDefaults = {
+        model: status.ollama_model || 'llama3.2',
+        base_url: status.ollama_base_url || 'http://host.docker.internal:11434',
+      };
+      const stored = readLLMStore();
+      const firstVisit = !Object.keys(stored).length;
+      selectedLLMs.clear();
+      llmBadges.innerHTML = '';
+      LLM_INFO.forEach(l => {
+        llmBadges.appendChild(buildLLMItem(l, stored[l.key], ollamaDefaults));
+        // first visit: start with the LLMs whose key is already in .env, as before
+        setSelected(l.key, firstVisit ? (!!envLLMs[l.key] && !l.local) : !!(stored[l.key] && stored[l.key].selected));
+        refreshDot(l.key);
+      });
+    } catch { llmBadges.innerHTML = '<div class="llm-badge"><span class="llm-name" style="color:#f87171">Failed to load</span></div>'; }
+  }
+
+  // ── Prompts ────────────────────────────────────────────
+  async function loadPrompts() {
+    try {
+      const { prompts } = await fetch('/api/prompts').then(r => r.json());
+      prompts.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        promptSel.appendChild(opt);
+      });
+    } catch {}
+  }
+  promptSel.addEventListener('change', async () => {
+    if (!promptSel.value) return;
+    try {
+      const { content } = await fetch(`/api/prompts/${encodeURIComponent(promptSel.value)}`).then(r => r.json());
+      promptText.value = content;
+    } catch {}
+  });
+
+  // ── Report rendering ───────────────────────────────────
+  function fmt(s) { return s != null ? s.toFixed(1) + 's' : '-'; }
+
+  function buildTimingBar(t) {
+    const total = (t.generation_s||0) + (t.build_s||0) + (t.lint_s||0) + (t.atf_s||0);
+    if (total === 0) return '';
+    const pct = v => Math.round((v / total) * 100);
+    const phases = [
+      { cls: 'tb-gen',   v: t.generation_s, label: 'tl-gen',   name: `gen ${fmt(t.generation_s)}`   },
+      { cls: 'tb-build', v: t.build_s,      label: 'tl-build', name: `build ${fmt(t.build_s)}`     },
+      { cls: 'tb-lint',  v: t.lint_s,       label: 'tl-lint',  name: `lint ${fmt(t.lint_s)}`       },
+      { cls: 'tb-atf',   v: t.atf_s,        label: 'tl-atf',   name: `ATF ${fmt(t.atf_s)}`         },
+    ].filter(p => p.v > 0);
+    const bars   = phases.map(p => `<div class="${p.cls}" style="width:${pct(p.v)}%"></div>`).join('');
+    const labels = phases.map(p => `<span class="tl-item"><span class="tl-dot ${p.label}"></span>${p.name}</span>`).join('');
+    return `<div class="timing-section">
+      <div class="timing-bar">${bars}</div>
+      <div class="timing-labels">${labels}</div>
+    </div>`;
+  }
+
+  function buildIssueTag(check, count, isAtf) {
+    const cls = isAtf ? '' : (check === 'HardcodedText' || check === 'Autofill' || check === 'TextFields' ? 'warn' : 'err');
+    return `<span class="tag ${cls}">${check} ×${count}</span>`;
+  }
+
+  function buildCard(name, r) {
+    const statusCls = r.status === 'success' ? 'cs-success' : (r.status === 'generation_failed' ? 'cs-genfail' : 'cs-failed');
+    const baseLabel = { success: '✓ success', build_failed: '✗ build fail', generation_failed: '✗ gen fail', lint_failed: '✗ lint fail' }[r.status] || r.status;
+    const repairBadge = (r.repair_attempts > 0) ? ` <span style="font-size:0.6rem;background:#0a1a2a;color:#60a5fa;padding:1px 5px;border-radius:3px;margin-left:4px">↩ ${r.repair_attempts}×</span>` : '';
+    const statusLabel = baseLabel + repairBadge;
+
+    let body = '';
+
+    if (r.status !== 'success') {
+      const msg = (r.error || '').split('\n')[0].slice(0, 120);
+      body = `<div class="error-msg">${msg || r.status}</div>`;
+    } else {
+      // Lint issues
+      const lintTotal = r.accessibility_issues?.total || 0;
+      const lintCats  = r.accessibility_issues?.by_category || {};
+      const lintTags  = Object.entries(lintCats).map(([c,n]) => buildIssueTag(c, n, false)).join('');
+      // ATF issues
+      const atfTotal  = r.atf_issues?.total || 0;
+      const atfChecks = {};
+      (r.atf_issues?.issues || []).forEach(i => { atfChecks[i.check] = (atfChecks[i.check]||0)+1; });
+      const atfTags = Object.entries(atfChecks).map(([c,n]) => buildIssueTag(c, n, true)).join('');
+
+      body = `
+        <div class="issue-row">
+          <span class="issue-source src-lint">LINT</span>
+          <span class="issue-count ${lintTotal===0?'zero':''}">${lintTotal}</span>
+          <span class="issue-tags">${lintTags || '<span style="color:#7d8da7;font-size:0.65rem">none</span>'}</span>
+        </div>
+        <div class="issue-row">
+          <span class="issue-source src-atf">ATF</span>
+          <span class="issue-count ${atfTotal===0?'zero':''}">${atfTotal}</span>
+          <span class="issue-tags">${atfTags || '<span style="color:#7d8da7;font-size:0.65rem">none</span>'}</span>
+        </div>
+        ${buildTimingBar(r.timing)}`;
+    }
+
+    const codeHtml = r.generated_code
+      ? `<details class="code-section">
+          <summary class="code-toggle">View generated code (${r.generated_code.split('\n').length} lines)</summary>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <pre class="code-pre">${escapeHtml(r.generated_code)}</pre>
+          </div>
+        </details>` : '';
+
+    return `<div class="llm-card">
+      <div class="llm-card-header">
+        <span class="llm-card-name">${name.toUpperCase()}</span>
+        <span class="card-status ${statusCls}">${statusLabel}</span>
+      </div>
+      <div class="llm-card-body">${body}</div>
+      ${codeHtml}
+    </div>`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window.copyCode = function(btn) {
+    const pre = btn.nextElementSibling;
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    }).catch(() => {
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+  };
+
+  function buildAggregateCard(name, r) {
+    const n      = r.n_runs || 1;
+    const nOk    = r.n_success || 0;
+    const pct    = Math.round((r.build_success_rate || 0) * 100);
+    const sCls   = pct === 100 ? 'cs-success' : pct === 0 ? 'cs-failed' : 'cs-partial';
+    const sLabel = `${nOk}/${n} runs`;
+    const dots   = (r.runs || []).map(run =>
+      `<span class="run-dot ${run.status === 'success' ? 'run-dot-ok' : 'run-dot-fail'}" title="Run ${run.run_num}: ${run.status}"></span>`
+    ).join('');
+    const t = r.avg_timing || {};
+    const lintAvg = (r.avg_lint_issues || 0).toFixed(1);
+    const atfAvg  = (r.avg_atf_issues  || 0).toFixed(1);
+    return `<div class="llm-card">
+      <div class="llm-card-header">
+        <span class="llm-card-name">${name.toUpperCase()}</span>
+        <span class="card-status ${sCls}">${sLabel}</span>
+      </div>
+      <div class="llm-card-body">
+        <div class="run-dots-row">${dots}</div>
+        <div class="issue-row">
+          <span class="issue-source src-lint">LINT</span>
+          <span class="issue-count ${lintAvg === '0.0' ? 'zero' : ''}">${lintAvg}</span>
+          <span class="issue-tags" style="color:var(--label);font-size:0.65rem">avg/run</span>
+        </div>
+        <div class="issue-row">
+          <span class="issue-source src-atf">ATF</span>
+          <span class="issue-count ${atfAvg === '0.0' ? 'zero' : ''}">${atfAvg}</span>
+          <span class="issue-tags" style="color:var(--label);font-size:0.65rem">avg/run</span>
+        </div>
+        ${buildTimingBar(t)}
+      </div>
+    </div>`;
+  }
+
+  function buildAggregateChart(llms, nRunsTotal) {
+    const entries   = Object.entries(llms);
+    const maxIssues = Math.max(1, ...entries.map(([,r]) =>
+      (r.avg_lint_issues||0) + (r.avg_atf_issues||0)
+    ));
+
+    const successRows = entries.map(([name, r]) => {
+      const pct = Math.round((r.build_success_rate || 0) * 100);
+      return `<div class="bar-row">
+        <span class="bar-label">${name}</span>
+        <div class="bar-track"><div style="background:#4ade80;height:100%;width:${pct}%"></div></div>
+        <span class="bar-value">${pct}%</span>
+      </div>`;
+    }).join('');
+
+    const issueRows = entries.map(([name, r]) => {
+      if ((r.build_success_rate || 0) === 0) {
+        return `<div class="bar-row">
+          <span class="bar-label">${name}</span>
+          <div class="bar-track"><div class="bar-fail"><span class="bar-fail-label">0 successful builds</span></div></div>
+          <span class="bar-value" style="color:#808d9f">—</span>
+        </div>`;
+      }
+      const lint  = r.avg_lint_issues || 0;
+      const atf   = r.avg_atf_issues  || 0;
+      const total = lint + atf;
+      const lW    = Math.round((lint / maxIssues) * 100);
+      const aW    = Math.round((atf  / maxIssues) * 100);
+      return `<div class="bar-row">
+        <span class="bar-label">${name}</span>
+        <div class="bar-track">
+          <div class="bar-lint" style="width:${lW}%"></div>
+          <div class="bar-atf"  style="width:${aW}%"></div>
+        </div>
+        <span class="bar-value">${total.toFixed(1)}</span>
+      </div>`;
+    }).join('');
+
+    return `
+      <div class="chart-section">
+        <div class="chart-title">Build success rate (${nRunsTotal} runs)</div>
+        ${successRows}
+      </div>
+      <div class="chart-section">
+        <div class="chart-title">Average issues per LLM</div>
+        ${issueRows}
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot" style="background:#818cf8"></span>Lint A11Y</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span>ATF</span>
+        </div>
+      </div>`;
+  }
+
+  function buildChart(llms) {
+    const entries = Object.entries(llms);
+    const maxIssues = Math.max(1, ...entries.map(([,r]) =>
+      r.status === 'success' ? (r.accessibility_issues?.total||0) + (r.atf_issues?.total||0) : 0
+    ));
+
+    const rows = entries.map(([name, r]) => {
+      if (r.status !== 'success') {
+        return `<div class="bar-row">
+          <span class="bar-label">${name}</span>
+          <div class="bar-track"><div class="bar-fail"><span class="bar-fail-label">${r.status.replace('_',' ')}</span></div></div>
+          <span class="bar-value" style="color:#808d9f">—</span>
+        </div>`;
+      }
+      const lint = r.accessibility_issues?.total || 0;
+      const atf  = r.atf_issues?.total || 0;
+      const total = lint + atf;
+      const lintW = Math.round((lint / maxIssues) * 100);
+      const atfW  = Math.round((atf  / maxIssues) * 100);
+      return `<div class="bar-row">
+        <span class="bar-label">${name}</span>
+        <div class="bar-track">
+          <div class="bar-lint" style="width:${lintW}%"></div>
+          <div class="bar-atf"  style="width:${atfW}%"></div>
+        </div>
+        <span class="bar-value">${total}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="chart-section">
+      <div class="chart-title">Issues per LLM</div>
+      ${rows}
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#818cf8"></span>Lint</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span>ATF</span>
+      </div>
+    </div>`;
+  }
+
+  async function showReport() {
+    try {
+      const data = await fetch('/api/report/latest').then(r => r.json());
+      rpRunId.textContent = (data.type === 'aggregate')
+        ? `${data.n_runs} runs`
+        : 'Run ' + (data.run_id || '');
+
+      if (data.type === 'aggregate') {
+        const cards = Object.entries(data.llms).map(([n,r]) => buildAggregateCard(n,r)).join('');
+        rpBody.innerHTML = cards + buildAggregateChart(data.llms, data.n_runs);
+      } else {
+        const cards = Object.entries(data.llms).map(([n,r]) => buildCard(n,r)).join('');
+        rpBody.innerHTML = cards + buildChart(data.llms);
+      }
+      reportPanel.classList.add('open');
+    } catch(e) { console.error('Report fetch failed', e); }
+  }
+
+  rpClose.addEventListener('click', () => reportPanel.classList.remove('open'));
+
+  // ── Run pipeline ───────────────────────────────────────
+  runBtn.addEventListener('click', async () => {
+    const prompt = promptText.value.trim();
+    if (!prompt) { alert('Type a prompt before running.'); return; }
+    if (!getSelectedLLMs().length) { alert('Select at least one LLM.'); return; }
+    const missing = missingKeys();
+    if (missing.length) { alert('Enter the API key for: ' + missing.join(', ') + '.'); return; }
+
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Running…';
+    setStatus('running');
+    autoScroll = true;
+    showCursor();
+
+    try {
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          selected_llms: getSelectedLLMs(),
+          credentials: getCredentials(),
+          few_shot_examples: isFewShot ? fewshotText.value.trim() : '',
+          n_runs: nRuns,
+          self_repair: selfRepair,
+        }),
+      });
+
+      if (res.status === 409) { removeCursor(); alert('The pipeline is already running.'); setStatus('running'); return; }
+      if (!res.ok) { removeCursor(); appendLine(`[HTTP error ${res.status}]`); setStatus('error'); return; }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', finished = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const chunk = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          if (chunk.startsWith('data: ')) {
+            const text = chunk.slice(6);
+            if (text === '__DONE__') {
+              removeCursor(); setStatus('done'); finished = true;
+              showReport();
+            } else {
+              appendLine(text); showCursor();
+            }
+          }
+        }
+      }
+      if (!finished) { removeCursor(); setStatus('done'); showReport(); }
+
+    } catch (err) {
+      removeCursor(); appendLine(`[Connection error: ${err.message}]`); setStatus('error');
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = '▶ Run Pipeline';
+
+    }
+  });
+
+  // ── Clear ──────────────────────────────────────────────
+  clearBtn.addEventListener('click', () => {
+    outputEl.innerHTML = '';
+    cursorEl = null;
+    setStatus('idle');
+    reportPanel.classList.remove('open');
+  });
+
+  // ── Fixed instructions toggle ──────────────────────────
+  const fixedToggle  = document.getElementById('fixedToggle');
+  const fixedContent = document.getElementById('fixedContent');
+  const fixedArrow   = document.getElementById('fixedArrow');
+  fixedToggle.addEventListener('click', () => {
+    const open = fixedContent.style.display === 'block';
+    fixedContent.style.display = open ? 'none' : 'block';
+    fixedArrow.textContent = open ? '▸' : '▾';
+  });
+
+  // ── Init ───────────────────────────────────────────────
+  loadStatus();
+  loadPrompts();
+</script>
+
+<script src="/static/js/router.js"></script>
+</body>
+</html>

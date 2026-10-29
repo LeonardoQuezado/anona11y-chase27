@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>App Scan — Melodie A11Y</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0d0718;
+      --surface:      #160d2a;
+      --border:       #2a1a4a;
+      --accent:       #22d3ee;
+      --accent-hover: #06b6d4;
+      --accent-g:     #a855f7;
+      --accent-warn:  #fbbf24;
+      --text:         #e2d9f3;
+      --muted:        #9286ae;
+      --input-bg:     #1a0d30;
+      --input-border: #3d2060;
+      --header-bg:    #1a0d30;
+    }
+
+    html { font-size: 93.75%; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    aside {
+      width: 340px; min-width: 340px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 18px 16px; gap: 16px; overflow-y: auto;
+    }
+
+
+    /* ── Phase indicator ── */
+    .phase-row { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+    .phase-item {
+      flex: 1; display: flex; align-items: center; gap: 8px;
+      padding: 9px 12px; font-size: 0.76rem; font-weight: 600;
+      color: var(--muted); background: var(--input-bg);
+      border-right: 1px solid var(--border);
+      transition: color 0.15s, background 0.15s;
+    }
+    .phase-item:last-child { border-right: none; }
+    .phase-item.active { color: var(--accent); background: #07131a; }
+    .phase-item.done   { color: var(--accent-g); background: #071209; }
+    .phase-item.locked { color: #768ead; }
+    .phase-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 800; flex-shrink: 0;
+      background: #1a2433; color: var(--muted);
+    }
+    .phase-item.active .phase-num { background: #083041; color: var(--accent); }
+    .phase-item.done   .phase-num { background: #083018; color: var(--accent-g); }
+    .phase-item.locked .phase-num { background: #12141f; color: #768ead; }
+
+    /* ── Section label ── */
+    .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 8px; }
+
+    /* ── Input group ── */
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    .input-label { font-size: 0.72rem; color: var(--muted); }
+    .input-field {
+      background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 7px;
+      padding: 8px 10px; font-size: 0.8rem; color: var(--text); outline: none;
+      transition: border-color 0.15s; font-family: 'SF Mono','Fira Code',monospace;
+      width: 100%;
+    }
+    .input-field:focus { border-color: var(--accent); }
+    .input-field::placeholder { color: #768ead; }
+
+    /* ── Flow steps ── */
+    .flow-steps { display: flex; flex-direction: column; gap: 5px; }
+    .flow-step {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--input-bg); border: 1px solid var(--input-border);
+      border-radius: 7px; padding: 6px 8px;
+    }
+    .step-num { font-size: 0.62rem; font-weight: 700; color: #808d9f; width: 16px; text-align: center; flex-shrink: 0; }
+    .step-type {
+      background: transparent; border: none; outline: none;
+      font-size: 0.7rem; color: var(--accent); font-weight: 600;
+      cursor: pointer; padding: 0; flex-shrink: 0;
+      font-family: inherit;
+    }
+    .step-type:focus { outline: none; }
+    .step-sep { color: #768ead; font-size: 0.65rem; flex-shrink: 0; }
+    .step-value {
+      flex: 1; background: transparent; border: none; outline: none;
+      font-size: 0.72rem; color: var(--text); font-family: inherit;
+      min-width: 0;
+    }
+    .step-value::placeholder { color: #768ead; }
+    .step-del {
+      background: none; border: none; color: #768ead; cursor: pointer;
+      font-size: 0.9rem; line-height: 1; padding: 0 2px; flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .step-del:hover { color: #f87171; }
+    .add-step-btn {
+      background: none; border: 1px dashed #24243a; border-radius: 6px;
+      padding: 7px; font-size: 0.72rem; color: #768ead; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s; text-align: center;
+      width: 100%;
+    }
+    .add-step-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Buttons ── */
+    .run-btn {
+      padding: 11px; font-weight: 700; font-size: 0.87rem;
+      border: none; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s; flex-shrink: 0; letter-spacing: 0.02em;
+    }
+    .btn-capture { background: var(--accent); color: #041015; }
+    .btn-capture:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-analyse { background: var(--accent-g); color: #041208; }
+    .btn-analyse:hover:not(:disabled) { background: #22c55e; }
+    .run-btn:disabled { background: #1c2333; color: #808d9f; cursor: not-allowed; }
+
+    .notice { padding: 9px 12px; border-radius: 8px; font-size: 0.72rem; line-height: 1.6; }
+    .notice-info { background: #071318; border: 1px solid #0d2a38; color: #67e8f9; }
+    .notice-warn { background: #1a1000; border: 1px solid #3a2a00; color: var(--accent-warn); }
+
+    /* ── Main panel ── */
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    .output-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 16px; background: var(--header-bg);
+      border-bottom: 1px solid #21262d; font-size: 0.78rem; flex-shrink: 0;
+    }
+    .output-header .title { flex: 1; color: var(--muted); }
+    .status-badge { padding: 2px 9px; border-radius: 99px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+    .s-idle     { background: #1c2333; color: #808d9f; }
+    .s-capture  { background: #071318; color: var(--accent); }
+    .s-analyse  { background: #071209; color: var(--accent-g); }
+    .s-done     { background: #0a2016; color: #34d399; }
+    .s-error    { background: #2a0f12; color: #f87171; }
+
+    .clear-btn {
+      background: none; border: 1px solid #21262d; color: #808d9f;
+      padding: 3px 10px; border-radius: 4px; cursor: pointer;
+      font-size: 0.72rem; transition: color 0.15s, border-color 0.15s;
+    }
+    .clear-btn:hover { color: #c9d1d9; border-color: #3d444d; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      color: #768ead; text-align: center; padding: 32px;
+    }
+    .empty-icon {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: #0d1117; border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+    }
+    .empty-title { font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+    .empty-sub { font-size: 0.78rem; line-height: 1.7; max-width: 380px; }
+    .phase-flow {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 18px;
+      font-size: 0.75rem; color: var(--muted);
+    }
+    .phase-flow-item { display: flex; align-items: center; gap: 6px; }
+    .phase-flow-dot  { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-cyan   { background: var(--accent); }
+    .dot-green  { background: var(--accent-g); }
+    .dot-gray   { background: #4b5563; }
+    .phase-flow-arrow { color: #768ead; }
+
+    /* ── Filmstrip ── */
+    .filmstrip-wrap { flex: 1; overflow-y: auto; padding: 20px 24px; }
+    .filmstrip-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .filmstrip-title { font-size: 0.78rem; font-weight: 600; color: var(--muted); flex: 1; }
+    .filmstrip-count { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: #071318; color: var(--accent); border: 1px solid #0d2a38; }
+    .filmstrip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .frame-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+      cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .frame-card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .frame-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .frame-img {
+      width: 100%; aspect-ratio: 9/19.5; object-fit: cover;
+      background: #07080f; display: block;
+    }
+    .frame-img-placeholder {
+      width: 100%; aspect-ratio: 9/19.5;
+      background: #07080f; display: flex;
+      align-items: center; justify-content: center;
+      color: #768ead; font-size: 0.65rem;
+    }
+    .frame-info { padding: 8px 10px; }
+    .frame-label { font-size: 0.7rem; font-weight: 600; color: #c9d1d9; }
+    .frame-activity { font-family: monospace; font-size: 0.6rem; color: #808d9f; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .frame-badges { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+    .frame-badge { font-size: 0.6rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+    .badge-pending  { background: #0d1117; color: #808d9f; border: 1px solid var(--border); }
+    .badge-running  { background: #071318; color: var(--accent); border: 1px solid #0d2a38; }
+    .badge-ok       { background: #071209; color: var(--accent-g); border: 1px solid #0f2a14; }
+    .badge-issues   { background: #2a0f0a; color: #f87171; border: 1px solid #4a1a1a; }
+
+    /* ── Log strip ── */
+    #logStrip {
+      height: 120px; flex-shrink: 0; overflow-y: auto;
+      padding: 8px 16px; font-family: 'SF Mono','Fira Code',monospace;
+      font-size: 0.72rem; line-height: 1.65; white-space: pre-wrap;
+      word-break: break-word; border-top: 1px solid var(--border);
+      background: #07080f;
+    }
+    .ln { display: block; }
+    .ln-ok     { color: var(--accent-g); }
+    .ln-err    { color: #f87171; }
+    .ln-warn   { color: var(--accent-warn); }
+    .ln-info   { color: var(--accent); }
+    .ln-normal { color: var(--muted); }
+
+    /* ── Mode selector ── */
+    .mode-selector { display: flex; flex-direction: column; gap: 5px; }
+    .mode-option { cursor: pointer; }
+    .mode-option input[type=radio] { display: none; }
+    .mode-card {
+      padding: 10px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--input-bg);
+      transition: border-color 0.15s, background 0.15s;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .mode-card:hover { border-color: #3d4f66; }
+    .mode-option input:checked + .mode-card { border-color: var(--accent); background: #071318; }
+    .mode-dot {
+      width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+      border: 2px solid #3d4f66; transition: border-color 0.15s, background 0.15s;
+    }
+    .mode-option input:checked + .mode-card .mode-dot {
+      border-color: var(--accent); background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34,211,238,0.15);
+    }
+    .mode-option-detalhado input:checked + .mode-card { border-color: #f59e0b; background: #0f0b00; }
+    .mode-option-detalhado input:checked + .mode-card .mode-dot {
+      border-color: #f59e0b; background: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.15);
+    }
+    .mode-text { flex: 1; }
+    .mode-title { font-size: 0.78rem; font-weight: 700; color: #e2e8f0; margin-bottom: 2px; }
+    .mode-desc  { font-size: 0.67rem; color: var(--muted); line-height: 1.5; }
+    .mode-badge {
+      flex-shrink: 0; font-size: 0.58rem; font-weight: 700; padding: 1px 6px;
+      border-radius: 3px; letter-spacing: 0.04em; margin-top: 2px;
+    }
+    .badge-fast  { background: #071318; color: var(--accent); border: 1px solid #0d2a38; }
+    .badge-slow  { background: #1a0e00; color: #f59e0b; border: 1px solid #3a2400; }
+    .badge-fluxo { background: #130a1f; color: #a78bfa; border: 1px solid #2a1550; }
+    .mode-option-fluxo input:checked + .mode-card { border-color: #a78bfa; background: #0d091a; }
+    .mode-option-fluxo input:checked + .mode-card .mode-dot {
+      border-color: #a78bfa; background: #a78bfa;
+      box-shadow: 0 0 0 3px rgba(167,139,250,0.15);
+    }
+
+    /* ── ATF progress (detailed mode) ── */
+    .atf-progress-bar {
+      flex-shrink: 0; padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .atf-running {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; background: #07080f;
+    }
+    .atf-spinner {
+      width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+      border: 2px solid #f59e0b; border-top-color: transparent;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .atf-msg { flex: 1; font-size: 0.75rem; color: #f59e0b; font-weight: 600; }
+    .atf-timer { font-family: 'SF Mono','Fira Code',monospace; font-size: 0.75rem; color: #808d9f; flex-shrink: 0; }
+    .atf-screen-label { font-size: 0.68rem; color: #808d9f; margin-top: 1px; }
+
+    /* ── Navigate-ready banner ── */
+    .navigate-ready {
+      flex-shrink: 0; margin: 12px 16px 0;
+      display: flex; align-items: center; gap: 12px;
+      background: #071209; border: 1px solid #1a4a2e; border-radius: 10px;
+      padding: 12px 16px; animation: fadeInUp 0.3s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .nav-ready-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .nav-ready-text { flex: 1; }
+    .nav-ready-title { font-size: 0.82rem; font-weight: 700; color: var(--accent-g); }
+    .nav-ready-sub   { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .nav-ready-dismiss {
+      background: none; border: 1px solid #1a4a2e; color: var(--accent-g);
+      padding: 4px 10px; border-radius: 5px; font-size: 0.7rem;
+      cursor: pointer; flex-shrink: 0; transition: background 0.15s;
+    }
+    .nav-ready-dismiss:hover { background: #0a2016; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #24243a; border-radius: 4px; }
+    .page-footer { padding: 12px 24px; border-top: 1px solid var(--border); font-size: 0.68rem; color: #7d8da7; text-align: center; line-height: 1.8; flex-shrink: 0; }
+    .page-footer a { color: var(--muted); text-decoration: none; }
+    .page-footer a:hover { color: var(--text); }
+
+    /* ── Melodie Shell ── */
+    :root { --mono: 'SF Mono','Fira Mono','Consolas',monospace; }
+    body { font-family: var(--mono); display: flex; flex-direction: column; }
+    html, body { height: 100%; }
+    nav { font-size: medium; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 60px; height: 68px; background: rgba(6,5,13,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 36px; }
+    .nav-link { font-size: 0.82em; color: #9488b4; text-decoration: none; transition: color 0.15s; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1; display: inline-flex; align-items: center; font-family: var(--mono); }
+    .nav-link:hover { color: #e8e2f8; }
+    .nav-link.active { color: #c084fc; }
+    .nav-cta { margin-left: 28px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.82em !important; transition: opacity 0.15s, transform 0.15s !important; }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+    .page { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; background: transparent; }
+  </style>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+</head>
+<body>
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="/static/logo-wordmark.png" alt="Melodie A11Y">
+  </a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link">Analysis</a>
+    <a href="/correcao"   class="nav-link">Correction</a>
+    <a href="/relatorios" class="nav-link">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"         class="nav-link">Log</a>
+    <a href="/teste"         class="nav-link">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+<div class="page">
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside>
+    <!-- Phase indicator -->
+    <div class="phase-row">
+      <div class="phase-item active" id="phase1Indicator">
+        <div class="phase-num">1</div>
+        <span>Capture</span>
+      </div>
+      <div class="phase-item locked" id="phase2Indicator">
+        <div class="phase-num">2</div>
+        <span>Analysis</span>
+      </div>
+    </div>
+
+    <!-- App config -->
+    <div>
+      <div class="section-title">App to analyze</div>
+      <div class="input-group">
+        <label class="input-label">Package name</label>
+        <input class="input-field" id="packageInput" type="text"
+          placeholder="e.g. br.gov.serpro.sougov"
+          oninput="onPackageInput()">
+        <label class="input-label" style="margin-top:4px;">Name (optional)</label>
+        <input class="input-field" id="appNameInput" type="text"
+          placeholder="e.g. SouGov">
+      </div>
+    </div>
+
+    <!-- Mode selector (includes navigation + analysis timing) -->
+    <div>
+      <div class="section-title">Operation mode</div>
+      <div class="mode-selector">
+
+        <label class="mode-option">
+          <input type="radio" name="mode" value="rapido" checked onchange="onModeChange()">
+          <div class="mode-card">
+            <div class="mode-dot"></div>
+            <div class="mode-text">
+              <div class="mode-title">Manual — Fast</div>
+              <div class="mode-desc">You navigate freely. Every screen change is captured. The ATF analysis runs when you finish.</div>
+            </div>
+            <span class="mode-badge badge-fast">Phase 1 → 2</span>
+          </div>
+        </label>
+
+        <label class="mode-option mode-option-detalhado">
+          <input type="radio" name="mode" value="detalhado" onchange="onModeChange()">
+          <div class="mode-card">
+            <div class="mode-dot"></div>
+            <div class="mode-text">
+              <div class="mode-title">Manual — Detailed</div>
+              <div class="mode-desc">You navigate. ATF runs on every detected screen and tells you when you can move on.</div>
+            </div>
+            <span class="mode-badge badge-slow">Screen by screen</span>
+          </div>
+        </label>
+
+        <label class="mode-option mode-option-fluxo">
+          <input type="radio" name="mode" value="fluxo" onchange="onModeChange()">
+          <div class="mode-card">
+            <div class="mode-dot"></div>
+            <div class="mode-text">
+              <div class="mode-title">Automatic flow</div>
+              <div class="mode-desc">The system runs steps you define. It captures and analyzes along the flow.</div>
+            </div>
+            <span class="mode-badge badge-fluxo">Automated</span>
+          </div>
+        </label>
+
+      </div>
+    </div>
+
+    <!-- Flow steps (only visible in Automatic flow mode) -->
+    <div id="flowSection" style="display:none;">
+      <div class="section-title">Flow steps</div>
+      <div class="flow-steps" id="flowSteps"></div>
+      <button class="add-step-btn" onclick="addStep()" style="margin-top:5px;">+ Add step</button>
+    </div>
+
+    <div class="notice notice-info" id="noticeRapido" style="font-size:0.7rem;">
+      Navigate the app. Every screen change is detected and recorded automatically.
+    </div>
+    <div class="notice notice-warn" id="noticeDetalhado" style="font-size:0.7rem;display:none;">
+      Wait for the "you can navigate" notice after each screen. ATF takes ~90–140 s per screen.
+    </div>
+    <div class="notice notice-info" id="noticeFluxo" style="font-size:0.7rem;display:none;">
+      The system runs the steps automatically and captures every screen marked with "Capture".
+    </div>
+
+    <!-- Capture button -->
+    <button class="run-btn btn-capture" id="captureBtn" disabled onclick="toggleCapture()">
+      Start capture
+    </button>
+
+    <!-- Analyse button (locked until phase 1 done) -->
+    <button class="run-btn btn-analyse" id="analyseBtn" disabled onclick="startAnalysis()">
+      Analyze captured screens
+    </button>
+
+  </aside>
+
+  <!-- Main panel -->
+  <main>
+    <div class="output-header">
+      <span class="title" id="mainTitle">No active session</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="status-badge s-idle" id="statusBadge">Waiting</span>
+        <button class="clear-btn" id="clearSessionBtn" onclick="clearSession()" style="display:none;">Clear</button>
+      </div>
+    </div>
+
+    <!-- ATF progress bar (detailed mode, while a screen is analyzed) -->
+    <div id="atfProgressBar" class="atf-progress-bar" style="display:none;">
+      <div class="atf-running">
+        <div class="atf-spinner"></div>
+        <div>
+          <div class="atf-msg">ATF running — wait before navigating</div>
+          <div class="atf-screen-label" id="atfScreenLabel">Analyzing the current screen…</div>
+        </div>
+        <div class="atf-timer" id="atfTimer">0:00</div>
+      </div>
+    </div>
+
+    <!-- Navigate-ready banner (detailed mode, ATF finished) -->
+    <div id="navigateReady" class="navigate-ready" style="display:none;">
+      <div class="nav-ready-icon">✓</div>
+      <div class="nav-ready-text">
+        <div class="nav-ready-title">Analysis finished — you can navigate to the next screen</div>
+        <div class="nav-ready-sub" id="navigateReadySub">0 violations found on this screen</div>
+      </div>
+      <button class="nav-ready-dismiss" onclick="dismissNavigateReady()">Ok</button>
+    </div>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">📱</div>
+      <div class="empty-title">No screens captured yet</div>
+      <div class="empty-sub">Set the app package name, define a navigation flow and start capturing. The screens will appear here in real time.</div>
+      <div class="phase-flow">
+        <div class="phase-flow-item"><div class="phase-flow-dot dot-cyan"></div>Phase 1 — screen capture</div>
+        <div class="phase-flow-arrow">→</div>
+        <div class="phase-flow-item"><div class="phase-flow-dot dot-gray"></div>manual review</div>
+        <div class="phase-flow-arrow">→</div>
+        <div class="phase-flow-item"><div class="phase-flow-dot dot-green"></div>Phase 2 — ATF + Lint</div>
+      </div>
+    </div>
+
+    <!-- Filmstrip -->
+    <div id="filmstripWrap" class="filmstrip-wrap" style="display:none;">
+      <div class="filmstrip-header">
+        <span class="filmstrip-title">Captured screens</span>
+        <span class="filmstrip-count" id="frameCount">0 screens</span>
+      </div>
+      <div class="filmstrip-grid" id="filmstripGrid"></div>
+    </div>
+
+    <!-- Log strip -->
+    <div id="logStrip" style="display:none;"></div>
+  </main>
+
+</div><!-- /.layout -->
+</div><!-- /.page -->
+
+<script>
+  const STEP_TYPES = ['Wait', 'Tap (content-desc)', 'Tap (text)', 'Tap (x,y)', 'Back', 'Capture'];
+  let capturing = false;
+  let frames = [];
+  let captureInterval = null;
+  let atfTimerInterval = null;
+  let atfElapsed = 0;
+
+  // ── Default flow ─────────────────────────────────────────────────────────────
+  const DEFAULT_STEPS = [
+    { type: 'Wait', value: '2000' },
+    { type: 'Capture', value: '' },
+  ];
+
+  function initDefaultSteps() {
+    const container = document.getElementById('flowSteps');
+    container.innerHTML = '';
+    for (const s of DEFAULT_STEPS) addStep(s.type, s.value);
+  }
+
+  function addStep(type, value) {
+    const container = document.getElementById('flowSteps');
+    const idx = container.children.length + 1;
+    const div = document.createElement('div');
+    div.className = 'flow-step';
+    const sel = STEP_TYPES.map(t =>
+      `<option${t === (type || 'Wait') ? ' selected' : ''}>${t}</option>`
+    ).join('');
+    div.innerHTML = `
+      <span class="step-num">${idx}</span>
+      <select class="step-type">${sel}</select>
+      <span class="step-sep">·</span>
+      <input class="step-value" type="text" placeholder="value" value="${escHtml(value || '')}">
+      <button class="step-del" onclick="removeStep(this)" title="Remove" aria-label="Remove step">×</button>`;
+    container.appendChild(div);
+    renumberSteps();
+  }
+
+  function removeStep(btn) {
+    btn.closest('.flow-step').remove();
+    renumberSteps();
+  }
+
+  function renumberSteps() {
+    document.querySelectorAll('.flow-step .step-num').forEach((el, i) => {
+      el.textContent = i + 1;
+    });
+  }
+
+  function getFlow() {
+    const steps = [];
+    for (const row of document.querySelectorAll('.flow-step')) {
+      steps.push({
+        type:  row.querySelector('.step-type').value,
+        value: row.querySelector('.step-value').value.trim(),
+      });
+    }
+    return steps;
+  }
+
+  // ── Mode ─────────────────────────────────────────────────────────────────────
+  function getMode() {
+    return document.querySelector('input[name=mode]:checked')?.value || 'rapido';
+  }
+
+  function onModeChange() {
+    const mode = getMode();
+    document.getElementById('noticeRapido').style.display    = mode === 'rapido'    ? '' : 'none';
+    document.getElementById('noticeDetalhado').style.display = mode === 'detalhado' ? '' : 'none';
+    document.getElementById('noticeFluxo').style.display     = mode === 'fluxo'     ? '' : 'none';
+    document.getElementById('flowSection').style.display     = mode === 'fluxo'     ? '' : 'none';
+  }
+
+  // ── ATF timer (UI only — simulates the detailed mode state) ─────────────────────
+  function startAtfTimer(screenLabel) {
+    atfElapsed = 0;
+    document.getElementById('atfProgressBar').style.display = '';
+    document.getElementById('navigateReady').style.display  = 'none';
+    document.getElementById('atfScreenLabel').textContent   = `Analyzing: ${screenLabel}`;
+    document.getElementById('atfTimer').textContent         = '0:00';
+    clearInterval(atfTimerInterval);
+    atfTimerInterval = setInterval(() => {
+      atfElapsed++;
+      const m = Math.floor(atfElapsed / 60);
+      const s = String(atfElapsed % 60).padStart(2, '0');
+      document.getElementById('atfTimer').textContent = `${m}:${s}`;
+    }, 1000);
+  }
+
+  function finishAtfTimer(issueCount) {
+    clearInterval(atfTimerInterval);
+    document.getElementById('atfProgressBar').style.display = 'none';
+    document.getElementById('navigateReady').style.display  = '';
+    document.getElementById('navigateReadySub').textContent =
+      issueCount === 0
+        ? 'No violations found on this screen'
+        : `${issueCount} violation${issueCount > 1 ? 's' : ''} found on this screen`;
+    if (Notification?.permission === 'granted') {
+      new Notification('Melodie Scan', {
+        body: issueCount === 0
+          ? 'Screen analyzed — you can navigate to the next one'
+          : `${issueCount} violation(s) found — you can navigate`,
+        icon: '/favicon.ico',
+      });
+    }
+  }
+
+  function dismissNavigateReady() {
+    document.getElementById('navigateReady').style.display = 'none';
+  }
+
+  // Demo: simulates the detailed mode ATF cycle (for display)
+  function demoDetalhado() {
+    if (getMode() !== 'detalhado') return;
+    startAtfTimer('Demo screen');
+    log('▶ ATF started for the current screen…', 'info');
+    setTimeout(() => {
+      finishAtfTimer(3);
+      updateFrameBadge(frames.length, 'issues', 3);
+      log('✓ ATF finished — 3 violations detected', 'warn');
+      log('You can navigate to the next screen.', 'ok');
+    }, 4000);
+  }
+
+  // ── Package input ─────────────────────────────────────────────────────────────
+  function onPackageInput() {
+    const val = document.getElementById('packageInput').value.trim();
+    document.getElementById('captureBtn').disabled = val.length === 0;
+  }
+
+  // ── Capture toggle ────────────────────────────────────────────────────────────
+  function toggleCapture() {
+    if (capturing) stopCapture();
+    else startCapture();
+  }
+
+  function startCapture() {
+    const pkg = document.getElementById('packageInput').value.trim();
+    if (!pkg) return;
+    capturing = true;
+
+    document.getElementById('captureBtn').textContent = 'Stop capture';
+    document.getElementById('captureBtn').style.background = '#2a0f0a';
+    document.getElementById('captureBtn').style.color = '#f87171';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('filmstripWrap').style.display = '';
+    document.getElementById('logStrip').style.display = '';
+    document.getElementById('clearSessionBtn').style.display = '';
+    document.getElementById('statusBadge').className = 'status-badge s-capture';
+    document.getElementById('statusBadge').textContent = 'Capturing';
+    document.getElementById('mainTitle').textContent = `${document.getElementById('appNameInput').value || pkg}`;
+    setPhase(1);
+    log('Capture started — navigate the app', 'info');
+    log(`Package: ${pkg}`, 'normal');
+    log(`Mode: ${getMode() === 'detalhado' ? 'Detailed (screen by screen)' : 'Fast (capture first)'}`, 'normal');
+    log('Waiting for the capture backend to be implemented…', 'warn');
+
+    if (getMode() === 'detalhado') {
+      // Ask for browser notification permission
+      if (Notification?.permission === 'default') Notification.requestPermission();
+      // Visual demo: simulates a screen being captured and analyzed
+      setTimeout(() => {
+        addFrame('Initial screen', pkg + '/MainActivity', null);
+        demoDetalhado();
+      }, 1500);
+    }
+  }
+
+  function stopCapture() {
+    capturing = false;
+    clearInterval(captureInterval);
+    document.getElementById('captureBtn').textContent = 'Start capture';
+    document.getElementById('captureBtn').style.background = '';
+    document.getElementById('captureBtn').style.color = '';
+    document.getElementById('statusBadge').className = 'status-badge s-idle';
+    document.getElementById('statusBadge').textContent = 'Capture finished';
+    if (frames.length > 0) {
+      document.getElementById('analyseBtn').disabled = false;
+      setPhase('between');
+      log(`Capture finished. ${frames.length} screen(s) recorded.`, 'ok');
+      log('Review the captured screens and click "Analyze" to start Phase 2.', 'info');
+    } else {
+      log('Capture finished. No screens were recorded.', 'warn');
+    }
+  }
+
+  // ── Filmstrip ─────────────────────────────────────────────────────────────────
+  function addFrame(label, activity, screenshotDataUrl) {
+    const frame = { id: frames.length + 1, label, activity, screenshot: screenshotDataUrl, status: 'pending', issues: [] };
+    frames.push(frame);
+    renderFrame(frame);
+    updateFrameCount();
+  }
+
+  function renderFrame(frame) {
+    const grid = document.getElementById('filmstripGrid');
+    const card = document.createElement('div');
+    card.className = 'frame-card';
+    card.id = `frame-${frame.id}`;
+    card.addEventListener('click', () => selectFrame(frame.id));
+    card.innerHTML = `
+      ${frame.screenshot
+        ? `<img class="frame-img" src="${frame.screenshot}" alt="Screen ${frame.id}">`
+        : `<div class="frame-img-placeholder">No capture</div>`}
+      <div class="frame-info">
+        <div class="frame-label">Screen ${frame.id} — ${escHtml(frame.label)}</div>
+        <div class="frame-activity">${escHtml(frame.activity || '')}</div>
+        <div class="frame-badges">
+          <span class="frame-badge badge-pending" id="fbadge-${frame.id}">Waiting for analysis</span>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  }
+
+  function updateFrameBadge(frameId, status, issueCount) {
+    const badge = document.getElementById(`fbadge-${frameId}`);
+    if (!badge) return;
+    if (status === 'running') {
+      badge.className = 'frame-badge badge-running';
+      badge.textContent = 'Analyzing…';
+    } else if (status === 'ok') {
+      badge.className = 'frame-badge badge-ok';
+      badge.textContent = 'No violations';
+    } else if (status === 'issues') {
+      badge.className = 'frame-badge badge-issues';
+      badge.textContent = `${issueCount} violation${issueCount > 1 ? 's' : ''}`;
+    }
+  }
+
+  function updateFrameCount() {
+    const el = document.getElementById('frameCount');
+    el.textContent = `${frames.length} screen${frames.length !== 1 ? 's' : ''}`;
+  }
+
+  function selectFrame(id) {
+    document.querySelectorAll('.frame-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`frame-${id}`)?.classList.add('selected');
+  }
+
+  // ── Analysis (Phase 2 — to be implemented) ────────────────────────────────────
+  function startAnalysis() {
+    if (frames.length === 0) return;
+    setPhase(2);
+    document.getElementById('statusBadge').className = 'status-badge s-analyse';
+    document.getElementById('statusBadge').textContent = 'Analyzing';
+    document.getElementById('analyseBtn').disabled = true;
+    log('', '');
+    log('Phase 2 — ATF analysis started…', 'info');
+    log('The analysis backend is not implemented yet.', 'warn');
+  }
+
+  // ── Phase indicator ───────────────────────────────────────────────────────────
+  function setPhase(phase) {
+    const p1 = document.getElementById('phase1Indicator');
+    const p2 = document.getElementById('phase2Indicator');
+    if (phase === 1) {
+      p1.className = 'phase-item active';
+      p2.className = 'phase-item locked';
+    } else if (phase === 'between') {
+      p1.className = 'phase-item done';
+      p2.className = 'phase-item locked';
+    } else if (phase === 2) {
+      p1.className = 'phase-item done';
+      p2.className = 'phase-item active';
+    }
+  }
+
+  // ── Session clear ─────────────────────────────────────────────────────────────
+  function clearSession() {
+    if (capturing) stopCapture();
+    clearInterval(atfTimerInterval);
+    document.getElementById('atfProgressBar').style.display = 'none';
+    document.getElementById('navigateReady').style.display  = 'none';
+    frames = [];
+    document.getElementById('filmstripGrid').innerHTML = '';
+    document.getElementById('filmstripWrap').style.display = 'none';
+    document.getElementById('logStrip').style.display = 'none';
+    document.getElementById('logStrip').innerHTML = '';
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('analyseBtn').disabled = true;
+    document.getElementById('clearSessionBtn').style.display = 'none';
+    document.getElementById('statusBadge').className = 'status-badge s-idle';
+    document.getElementById('statusBadge').textContent = 'Waiting';
+    document.getElementById('mainTitle').textContent = 'No active session';
+    updateFrameCount();
+    setPhase(1);
+    document.getElementById('phase1Indicator').className = 'phase-item active';
+  }
+
+  // ── Log ───────────────────────────────────────────────────────────────────────
+  function log(text, cls) {
+    const strip = document.getElementById('logStrip');
+    const ln = document.createElement('span');
+    ln.className = `ln ln-${cls || 'normal'}`;
+    ln.textContent = text;
+    strip.appendChild(ln);
+    strip.scrollTop = strip.scrollHeight;
+  }
+
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  initDefaultSteps();
+  onModeChange();
+
+  // Expose onclick handlers globally so they survive IIFE wrapping by SPA router
+  window.addStep              = addStep;
+  window.removeStep           = removeStep;
+  window.toggleCapture        = toggleCapture;
+  window.startAnalysis        = startAnalysis;
+  window.clearSession         = clearSession;
+  window.dismissNavigateReady = dismissNavigateReady;
+  window.onModeChange         = onModeChange;
+  window.onPackageInput       = onPackageInput;
+</script>
+<script src="/static/js/router.js"></script>
+</body>
+</html>

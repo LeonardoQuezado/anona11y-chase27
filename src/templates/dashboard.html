@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>Dashboard — Melodie A11Y</title>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0d0718;
+      --surface: #160d2a;
+      --surface2: #1c1035;
+      --border:  #2a1a4a;
+      --text:    #e2d9f3;
+      --muted:   #9286ae;
+      --mono:    'SF Mono','Fira Mono','Consolas',monospace;
+      /* categorical palette — reference validated dark mode */
+      --s1: #3987e5;
+      --s2: #d95926;
+      --s3: #199e70;
+      --s4: #c98500;
+      --cat5: #d55181;
+    }
+    html { font-size: 93.75%; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); line-height: 1.6; }
+    body { font-family: var(--mono); display: flex; flex-direction: column; }
+
+    /* ── Nav ── */
+    nav { font-size: medium; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 60px; height: 68px; background: rgba(6,5,13,0.88); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+    .nav-link { font-size: 0.82em; color: #9488b4; text-decoration: none; transition: color 0.15s; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1; display: inline-flex; align-items: center; font-family: var(--mono); }
+    .nav-link:hover { color: #e8e2f8; }
+    .nav-link.active { color: #c084fc; }
+    .nav-cta { margin-left: 28px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.82em !important; transition: opacity 0.15s, transform 0.15s !important; }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3a1f6a; border-radius: 3px; }
+
+    /* ── Page layout ── */
+    .page { position: relative; z-index: 1; flex: 1; background: transparent; }
+    .page.dash-layout { display: flex; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .dash-sidebar {
+      width: 268px; flex-shrink: 0;
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      background: rgba(22,13,42,0.7);
+      display: flex; flex-direction: column;
+    }
+    .sidebar-hd {
+      padding: 20px 18px 12px;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .reset-btn {
+      font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); background: none; border: 1px solid var(--border);
+      border-radius: 5px; padding: 3px 10px; cursor: pointer; font-family: var(--mono);
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .reset-btn:hover { color: var(--text); border-color: #7c3aed; }
+    .filter-body { flex: 1; overflow-y: auto; padding: 6px 0 32px; }
+    .filter-section { padding: 16px 18px 4px; }
+    .filter-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    /* LLM items */
+    .llm-item { margin-bottom: 14px; }
+    .llm-toggle-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 6px; cursor: pointer;
+    }
+    .llm-toggle-row input[type=checkbox] { display: none; }
+    .llm-check {
+      width: 16px; height: 16px; border-radius: 4px; border: 2px solid var(--border);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .llm-check.on { border-color: var(--llm-color); background: color-mix(in srgb, var(--llm-color) 20%, transparent); }
+    .llm-check.on::after { content: '✓'; font-size: 10px; color: var(--llm-color); line-height: 1; }
+    .llm-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--llm-color); }
+    .llm-name { font-size: 0.85rem; color: #c8bee8; flex: 1; }
+    .ver-select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: #b09ecf; font-size: 0.8rem; font-family: var(--mono);
+      padding: 5px 10px; border-radius: 6px; cursor: pointer;
+      transition: border-color 0.12s;
+    }
+    .ver-select:focus { outline: none; border-color: #7c3aed; }
+    .ver-select option { background: #160d2a; }
+    /* Component checkboxes */
+    .comp-item { display: flex; align-items: center; gap: 9px; padding: 5px 0; cursor: pointer; }
+    .comp-item input[type=checkbox] { display: none; }
+    .comp-box {
+      width: 15px; height: 15px; border-radius: 3px; border: 2px solid var(--border);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .comp-box.on { border-color: #a855f7; background: rgba(168,85,247,0.15); }
+    .comp-box.on::after { content: '✓'; font-size: 10px; color: #c084fc; line-height: 1; }
+    .comp-name { font-size: 0.83rem; color: #9d8ec0; }
+    /* Metric radio */
+    .metric-item { display: flex; align-items: center; gap: 9px; padding: 5px 0; cursor: pointer; }
+    .metric-item input[type=radio] { display: none; }
+    .radio-dot {
+      width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--border);
+      flex-shrink: 0; transition: border-color 0.15s;
+    }
+    .radio-dot.on { border-color: #a855f7; background: radial-gradient(circle at center, #a855f7 40%, transparent 40%); }
+    .metric-label { font-size: 0.83rem; color: #9d8ec0; }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 18px; }
+
+    /* ── Main ── */
+    .dash-main { flex: 1; overflow-y: auto; padding: 36px 44px 80px; }
+    .dash-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; gap: 24px; }
+    .dash-eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .dash-title { font-size: 1.75rem; font-weight: 800; color: #f1eaff; line-height: 1.2; margin-bottom: 4px; }
+    .dash-sub { font-size: 0.85rem; color: var(--muted); }
+    .mock-badge { flex-shrink: 0; display: flex; align-items: center; gap: 8px; font-size: 0.73rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 7px 14px; border-radius: 7px; background: rgba(201,133,0,0.1); border: 1px solid rgba(201,133,0,0.35); color: #c98500; animation: mock-pulse 3s ease-in-out infinite; }
+    @keyframes mock-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    .mock-dot { width: 6px; height: 6px; border-radius: 50%; background: #c98500; flex-shrink: 0; }
+
+    /* ── KPI ── */
+    .kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 18px 22px; position: relative; overflow: hidden; }
+    .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .kpi-card.c1::before { background: var(--s1); }
+    .kpi-card.c2::before { background: var(--s2); }
+    .kpi-card.c3::before { background: var(--s3); }
+    .kpi-card.c4::before { background: var(--s4); }
+    .kpi-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 7px; }
+    .kpi-value { font-size: 1.85rem; font-weight: 800; color: #f1eaff; line-height: 1; margin-bottom: 3px; }
+    .kpi-detail { font-size: 0.78rem; color: var(--muted); }
+    .kpi-detail strong { color: #c8bee8; }
+
+    /* ── Charts ── */
+    .chart-row { display: grid; gap: 14px; margin-bottom: 14px; }
+    .chart-row.one { grid-template-columns: 1fr; }
+    .chart-row.two { grid-template-columns: 1fr 1fr; }
+    .chart-row.three { grid-template-columns: 3fr 2fr; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 22px 26px; }
+    .chart-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
+    .chart-title { font-size: 0.82rem; font-weight: 700; color: #c8bee8; text-transform: uppercase; letter-spacing: 0.08em; }
+    .chart-sub { font-size: 0.74rem; color: var(--muted); margin-top: 3px; }
+    .chart-wrap { position: relative; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+    .legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.76rem; color: var(--muted); }
+    .legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+    /* empty state */
+    .empty-state { display: none; align-items: center; justify-content: center; font-size: 0.85rem; color: var(--muted); text-align: center; padding: 20px; }
+
+    /* ── Table ── */
+    .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 22px 26px; margin-top: 14px; }
+    .table-title { font-size: 0.82rem; font-weight: 700; color: #c8bee8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    thead th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); padding: 7px 12px; border-bottom: 1px solid var(--border); font-weight: 600; white-space: nowrap; }
+    tbody td { padding: 11px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #c8bee8; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(168,85,247,0.04); }
+    .td-run { font-weight: 700; color: #e8e2f8; }
+    .td-llm { display: flex; align-items: center; gap: 8px; }
+    .td-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .sev-error { color: #f87171; font-weight: 700; }
+    .sev-warn  { color: #fbbf24; }
+    .best-cell { color: #4ade80; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <img src="/static/logo-wordmark.png" alt="Melodie A11Y">
+  </a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link">Analysis</a>
+    <a href="/correcao"   class="nav-link">Correction</a>
+    <a href="/relatorios" class="nav-link">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"        class="nav-link">Log</a>
+    <a href="/teste"        class="nav-link">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+
+<div class="page dash-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="dash-sidebar">
+    <div class="sidebar-hd">
+      Filters
+      <button class="reset-btn" id="resetBtn">Reset</button>
+    </div>
+    <div class="filter-body">
+
+      <!-- LLMs -->
+      <div class="filter-section">
+        <div class="filter-label">LLMs</div>
+        <div id="llmFilters"></div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <!-- Components -->
+      <div class="filter-section">
+        <div class="filter-label">Components</div>
+        <div id="compFilters"></div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <!-- Metric -->
+      <div class="filter-section">
+        <div class="filter-label">Main metric</div>
+        <label class="metric-item">
+          <input type="radio" name="metric" value="a11y" checked>
+          <div class="radio-dot on" data-m="a11y"></div>
+          <span class="metric-label">A11Y Lint</span>
+        </label>
+        <label class="metric-item">
+          <input type="radio" name="metric" value="atf">
+          <div class="radio-dot" data-m="atf"></div>
+          <span class="metric-label">ATF Issues</span>
+        </label>
+        <label class="metric-item">
+          <input type="radio" name="metric" value="total">
+          <div class="radio-dot" data-m="total"></div>
+          <span class="metric-label">Total (A11Y + ATF)</span>
+        </label>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="dash-main">
+
+    <div class="dash-header">
+      <div>
+        <div class="dash-eyebrow">Melodie A11Y · Research</div>
+        <h1 class="dash-title">Accessibility Dashboard</h1>
+        <p class="dash-sub">Comparison of violations across LLMs on several Android components</p>
+      </div>
+      <div class="mock-badge"><span class="mock-dot"></span>Simulated Data</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-strip">
+      <div class="kpi-card c1">
+        <div class="kpi-label">Runs included</div>
+        <div class="kpi-value" id="kpiRuns">4</div>
+        <div class="kpi-detail" id="kpiRunsDetail"><strong>4 components</strong></div>
+      </div>
+      <div class="kpi-card c2">
+        <div class="kpi-label">Violations (filter)</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-detail" id="kpiTotalDetail">—</div>
+      </div>
+      <div class="kpi-card c3">
+        <div class="kpi-label">Best LLM</div>
+        <div class="kpi-value" id="kpiBest" style="font-size:1.2rem;padding-top:5px">—</div>
+        <div class="kpi-detail" id="kpiBestDetail">—</div>
+      </div>
+      <div class="kpi-card c4">
+        <div class="kpi-label">Worst LLM</div>
+        <div class="kpi-value" id="kpiWorst" style="font-size:1.2rem;padding-top:5px">—</div>
+        <div class="kpi-detail" id="kpiWorstDetail">—</div>
+      </div>
+    </div>
+
+    <!-- Chart 1: Grouped bar — violations per run -->
+    <div class="chart-row one">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Violations per Run</div>
+            <div class="chart-sub" id="chartRunsSub">Issues per component and LLM</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chartRuns"></canvas></div>
+        <div class="chart-legend" id="legendRuns"></div>
+      </div>
+    </div>
+
+    <!-- Charts 2+3: Radar + Scatter -->
+    <div class="chart-row two">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">A11Y Quality Profile</div>
+            <div class="chart-sub">Score per dimension (0–100, higher = better)</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chartRadar"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Quality vs Speed</div>
+            <div class="chart-sub">Total violations × average time — ideal: bottom-left corner</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chartScatter"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts 4+5: Total + Categories -->
+    <div class="chart-row two">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Aggregated Total per LLM</div>
+            <div class="chart-sub">Sum of all selected runs</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chartTotal"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Violation Categories</div>
+            <div class="chart-sub">Breakdown by type (all runs)</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chartCats"></canvas></div>
+        <div class="chart-legend" id="legendCats"></div>
+      </div>
+    </div>
+
+    <!-- Chart 6: Timing -->
+    <div class="chart-row one">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Average Total Time per LLM</div>
+            <div class="chart-sub">Generation + build + lint + ATF (seconds)</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:160px"><canvas id="chartTiming"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-title">Run History</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Date</th>
+            <th>LLM</th>
+            <th>A11Y</th>
+            <th>Errors</th>
+            <th>Warnings</th>
+            <th>ATF</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="runTableBody"></tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Mock data ─────────────────────────────────────────────────────────────────
+const LLM_DEFS = [
+  { key: "Gemini 1.5 Pro",    family: "Gemini",   color: "#3987e5", fill: "rgba(57,135,229,0.72)",  versions: ["1.5 Pro","1.5 Flash","2.0 Flash","2.0 Pro"] },
+  { key: "GPT-4o",            family: "GPT",      color: "#d95926", fill: "rgba(217,89,38,0.72)",   versions: ["4o","4o-mini","4-turbo","o1-mini"] },
+  { key: "Claude 3.5 Sonnet", family: "Claude",   color: "#199e70", fill: "rgba(25,158,112,0.72)",  versions: ["3.5 Sonnet","3.5 Haiku","3 Opus","3 Haiku"] },
+  { key: "DeepSeek R1",       family: "DeepSeek", color: "#c98500", fill: "rgba(201,133,0,0.72)",   versions: ["R1","V3","R1-Distill-70B","R1-Distill-8B"] },
+];
+const LLM_MAP = Object.fromEntries(LLM_DEFS.map(d => [d.key, d]));
+
+const RUNS = [
+  {
+    id:"20260929_143022", date:"2026-09-29", component:"Music Player",
+    llms:{
+      "Gemini 1.5 Pro":    {a11y:4,errors:2,warnings:2,atf:3,time:48.3,cats:{ContentDescription:2,TouchTargetSize:1,ColorContrast:1}},
+      "GPT-4o":            {a11y:6,errors:3,warnings:3,atf:5,time:52.5,cats:{ContentDescription:3,TouchTargetSize:2,ColorContrast:1}},
+      "Claude 3.5 Sonnet": {a11y:2,errors:1,warnings:1,atf:2,time:47.6,cats:{ContentDescription:1,TouchTargetSize:1}},
+      "DeepSeek R1":       {a11y:8,errors:5,warnings:3,atf:7,time:64.0,cats:{ContentDescription:3,TouchTargetSize:2,ColorContrast:2,SpeakableText:1}},
+    }
+  },
+  {
+    id:"20261002_103415", date:"2026-10-02", component:"Login Screen",
+    llms:{
+      "Gemini 1.5 Pro":    {a11y:3,errors:1,warnings:2,atf:2,time:46.4,cats:{ContentDescription:1,SpeakableText:1,LabelFor:1}},
+      "GPT-4o":            {a11y:5,errors:2,warnings:3,atf:4,time:49.9,cats:{ContentDescription:2,LabelFor:2,TouchTargetSize:1}},
+      "Claude 3.5 Sonnet": {a11y:1,errors:0,warnings:1,atf:1,time:44.6,cats:{LabelFor:1}},
+      "DeepSeek R1":       {a11y:9,errors:6,warnings:3,atf:8,time:62.2,cats:{ContentDescription:3,LabelFor:2,TouchTargetSize:2,ColorContrast:1,SpeakableText:1}},
+    }
+  },
+  {
+    id:"20261007_162208", date:"2026-10-07", component:"Product List",
+    llms:{
+      "Gemini 1.5 Pro":    {a11y:5,errors:3,warnings:2,atf:4,time:50.5,cats:{ContentDescription:3,TouchTargetSize:1,ColorContrast:1}},
+      "GPT-4o":            {a11y:4,errors:2,warnings:2,atf:3,time:54.9,cats:{ContentDescription:2,TouchTargetSize:1,SpeakableText:1}},
+      "Claude 3.5 Sonnet": {a11y:3,errors:1,warnings:2,atf:2,time:49.0,cats:{ContentDescription:2,TouchTargetSize:1}},
+      "DeepSeek R1":       {a11y:6,errors:4,warnings:2,atf:5,time:66.6,cats:{ContentDescription:2,TouchTargetSize:2,ColorContrast:1,SpeakableText:1}},
+    }
+  },
+  {
+    id:"20261010_091533", date:"2026-10-10", component:"Settings Screen",
+    llms:{
+      "Gemini 1.5 Pro":    {a11y:2,errors:0,warnings:2,atf:2,time:48.7,cats:{ContentDescription:1,SpeakableText:1}},
+      "GPT-4o":            {a11y:7,errors:4,warnings:3,atf:6,time:52.7,cats:{ContentDescription:3,TouchTargetSize:2,SpeakableText:1,ColorContrast:1}},
+      "Claude 3.5 Sonnet": {a11y:2,errors:0,warnings:2,atf:1,time:46.3,cats:{ContentDescription:1,ColorContrast:1}},
+      "DeepSeek R1":       {a11y:5,errors:3,warnings:2,atf:4,time:63.7,cats:{ContentDescription:2,TouchTargetSize:1,SpeakableText:1,LabelFor:1}},
+    }
+  },
+];
+
+const CAT_META = [
+  { key:"ContentDescription", label:"ContentDesc.",  color:"#3987e5", fill:"rgba(57,135,229,0.72)" },
+  { key:"TouchTargetSize",    label:"TouchTarget",   color:"#d95926", fill:"rgba(217,89,38,0.72)" },
+  { key:"ColorContrast",      label:"ColorContrast", color:"#199e70", fill:"rgba(25,158,112,0.72)" },
+  { key:"SpeakableText",      label:"SpeakableText", color:"#c98500", fill:"rgba(201,133,0,0.72)" },
+  { key:"LabelFor",           label:"LabelFor",      color:"#d55181", fill:"rgba(213,81,129,0.72)" },
+];
+
+// Radar dimension maxima (slightly above worst case for visible spread)
+const RADAR_DIMS = [
+  { label:"ContentDesc.", key:"cat", cat:"ContentDescription", max:13 },
+  { label:"TouchTarget",  key:"cat", cat:"TouchTargetSize",     max:9  },
+  { label:"ColorContrast",key:"cat", cat:"ColorContrast",       max:5  },
+  { label:"SpeakableText",key:"cat", cat:"SpeakableText",       max:5  },
+  { label:"ATF Compliance",  key:"atf",                            max:30 },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────────
+const state = {
+  llms:    new Set(LLM_DEFS.map(d => d.key)),
+  comps:   new Set(RUNS.map(r => r.component)),
+  metric:  'a11y',
+  versions: Object.fromEntries(LLM_DEFS.map(d => [d.key, d.versions[0]])),
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function filteredRuns() { return RUNS.filter(r => state.comps.has(r.component)); }
+function activeLLMs()   { return LLM_DEFS.filter(d => state.llms.has(d.key)); }
+
+function metricVal(entry) {
+  if (state.metric === 'a11y')  return entry.a11y;
+  if (state.metric === 'atf')   return entry.atf;
+  return entry.a11y + entry.atf;
+}
+
+function llmTotal(llmKey) {
+  return filteredRuns().reduce((s, r) => s + (metricVal(r.llms[llmKey] ?? {a11y:0,atf:0})), 0);
+}
+function llmA11yTotal(llmKey)  { return filteredRuns().reduce((s,r) => s + (r.llms[llmKey]?.a11y ?? 0), 0); }
+function llmATFTotal(llmKey)   { return filteredRuns().reduce((s,r) => s + (r.llms[llmKey]?.atf  ?? 0), 0); }
+function llmAvgTime(llmKey) {
+  const times = filteredRuns().map(r => r.llms[llmKey]?.time ?? 0).filter(Boolean);
+  return times.length ? (times.reduce((a,b)=>a+b,0)/times.length) : 0;
+}
+function llmCatTotal(llmKey) {
+  const out = {};
+  filteredRuns().forEach(r => {
+    Object.entries(r.llms[llmKey]?.cats ?? {}).forEach(([k,v]) => { out[k]=(out[k]??0)+v; });
+  });
+  return out;
+}
+
+function radarScore(llmKey, dim) {
+  const runs = filteredRuns();
+  let count;
+  if (dim.key === 'atf') {
+    count = runs.reduce((s,r)=>s+(r.llms[llmKey]?.atf??0),0);
+  } else {
+    count = runs.reduce((s,r)=>s+(r.llms[llmKey]?.cats?.[dim.cat]??0),0);
+  }
+  return Math.max(0, Math.round((1 - count/dim.max) * 100));
+}
+
+function llmDisplayName(key) {
+  const d = LLM_MAP[key];
+  const ver = state.versions[key];
+  return ver === d.versions[0] ? key : `${d.family} ${ver}`;
+}
+
+// ── Chart.js defaults ──────────────────────────────────────────────────────────
+Chart.defaults.color          = '#7c6d9e';
+Chart.defaults.borderColor    = 'rgba(42,26,74,0.5)';
+Chart.defaults.font.family    = "'SF Mono','Fira Mono','Consolas',monospace";
+Chart.defaults.font.size      = 11;
+Chart.defaults.plugins.tooltip.backgroundColor = '#1c1035';
+Chart.defaults.plugins.tooltip.borderColor     = '#3a1f6a';
+Chart.defaults.plugins.tooltip.borderWidth     = 1;
+Chart.defaults.plugins.tooltip.padding         = 10;
+Chart.defaults.plugins.tooltip.titleColor      = '#e2d9f3';
+Chart.defaults.plugins.tooltip.bodyColor       = '#9488b4';
+
+const TICK  = { color:'#7c6d9e', font:{size:11} };
+const GRID  = { color:'rgba(42,26,74,0.55)', drawBorder:false };
+const NO_GRID = { display:false };
+
+// ── Chart instances ────────────────────────────────────────────────────────────
+const charts = {};
+
+function initCharts() {
+  // 1. Grouped bar
+  charts.runs = new Chart(document.getElementById('chartRuns'), {
+    type:'bar', data:{labels:[],datasets:[]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:{ ticks:TICK, grid:NO_GRID },
+        y:{ ticks:{...TICK,stepSize:2}, grid:GRID, beginAtZero:true,
+            title:{display:true,text:'Violations',color:'#7c6d9e',font:{size:10}} },
+      },
+    },
+  });
+
+  // 2. Radar
+  charts.radar = new Chart(document.getElementById('chartRadar'), {
+    type:'radar', data:{labels:RADAR_DIMS.map(d=>d.label),datasets:[]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:true,position:'bottom',labels:{color:'#7c6d9e',boxWidth:10,padding:14,font:{size:10}}} },
+      scales:{
+        r:{
+          min:0, max:100, ticks:{stepSize:25,color:'#7c6d9e',backdropColor:'transparent',font:{size:9}},
+          grid:{color:'rgba(42,26,74,0.6)'}, pointLabels:{color:'#9d8ec0',font:{size:11}},
+          angleLines:{color:'rgba(42,26,74,0.5)'},
+        },
+      },
+    },
+  });
+
+  // 3. Scatter
+  charts.scatter = new Chart(document.getElementById('chartScatter'), {
+    type:'scatter', data:{datasets:[]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{
+          label: ctx => {
+            const d = ctx.dataset;
+            return ` ${d.llmName}: ${ctx.parsed.y} violations · ${ctx.parsed.x.toFixed(1)}s`;
+          },
+        }},
+      },
+      scales:{
+        x:{ ticks:TICK, grid:GRID, title:{display:true,text:'Average time (s)',color:'#7c6d9e',font:{size:10}} },
+        y:{ ticks:TICK, grid:GRID, title:{display:true,text:'Total violations',color:'#7c6d9e',font:{size:10}} },
+      },
+    },
+  });
+
+  // 4. Horizontal totals
+  charts.total = new Chart(document.getElementById('chartTotal'), {
+    type:'bar', data:{labels:[],datasets:[]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:true,position:'bottom',labels:{color:'#7c6d9e',boxWidth:10,padding:12,font:{size:10}}},
+        tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:{ ticks:{...TICK,stepSize:5}, grid:GRID, beginAtZero:true },
+        y:{ ticks:TICK, grid:NO_GRID },
+      },
+    },
+  });
+
+  // 5. Stacked categories
+  charts.cats = new Chart(document.getElementById('chartCats'), {
+    type:'bar', data:{labels:[],datasets:[]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:{ stacked:true, ticks:TICK, grid:GRID, beginAtZero:true },
+        y:{ stacked:true, ticks:TICK, grid:NO_GRID },
+      },
+    },
+  });
+
+  // 6. Timing
+  charts.timing = new Chart(document.getElementById('chartTiming'), {
+    type:'bar', data:{labels:[],datasets:[]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toFixed(1)}s`}} },
+      scales:{
+        x:{ ticks:TICK, grid:GRID, beginAtZero:true,
+            title:{display:true,text:'segundos',color:'#7c6d9e',font:{size:10}} },
+        y:{ ticks:TICK, grid:NO_GRID },
+      },
+    },
+  });
+}
+
+// ── Update all charts from state ───────────────────────────────────────────────
+function updateAll() {
+  const llms  = activeLLMs();
+  const runs  = filteredRuns();
+  const keys  = llms.map(d => d.key);
+  const names = keys.map(llmDisplayName);
+
+  // ── Chart 1: grouped bar ──
+  charts.runs.data.labels   = runs.map(r => r.component);
+  charts.runs.data.datasets = llms.map((d,i) => ({
+    label: names[i],
+    data:  runs.map(r => metricVal(r.llms[d.key] ?? {a11y:0,atf:0})),
+    backgroundColor: d.fill, borderColor: d.color,
+    borderWidth:1.5, borderRadius:4, borderSkipped:false,
+  }));
+  charts.runs.update();
+
+  // ── Chart 2: radar ──
+  charts.radar.data.datasets = llms.map((d,i) => ({
+    label: names[i],
+    data:  RADAR_DIMS.map(dim => radarScore(d.key, dim)),
+    borderColor: d.color,
+    backgroundColor: d.color.replace('#','rgba(').replace(/^rgba\((..)(..)(..)/, (_,r,g,b) =>
+      `rgba(${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},0.12)`),
+    pointBackgroundColor: d.color,
+    pointRadius: 4,
+    borderWidth: 2,
+  }));
+  // Rebuild from hex properly
+  charts.radar.data.datasets = llms.map((d,i) => ({
+    label: names[i],
+    data:  RADAR_DIMS.map(dim => radarScore(d.key, dim)),
+    borderColor: d.color,
+    backgroundColor: d.fill.replace('0.72','0.1'),
+    pointBackgroundColor: d.color, pointBorderColor: '#0d0718',
+    pointRadius: 5, borderWidth:2,
+  }));
+  charts.radar.update();
+
+  // ── Chart 3: scatter ──
+  charts.scatter.data.datasets = llms.map(d => ({
+    llmName: names[LLM_DEFS.indexOf(d)],
+    label: llmDisplayName(d.key),
+    data:[{ x: parseFloat(llmAvgTime(d.key).toFixed(1)), y: llmTotal(d.key) }],
+    backgroundColor: d.fill, borderColor: d.color, borderWidth:2,
+    pointRadius:14, pointHoverRadius:16, pointStyle:'circle',
+  }));
+  charts.scatter.update();
+
+  // ── Chart 4: horizontal totals ──
+  const a11yTotals = keys.map(k => llmA11yTotal(k));
+  const atfTotals  = keys.map(k => llmATFTotal(k));
+  charts.total.data.labels = names;
+  charts.total.data.datasets = [
+    { label:'A11Y Lint', data:a11yTotals, backgroundColor:llms.map(d=>d.fill), borderColor:llms.map(d=>d.color), borderWidth:1.5, borderRadius:4, borderSkipped:false },
+    { label:'ATF',       data:atfTotals,  backgroundColor:'rgba(255,255,255,0.07)', borderColor:'rgba(255,255,255,0.2)', borderWidth:1, borderRadius:4, borderSkipped:false },
+  ];
+  charts.total.update();
+
+  // ── Chart 5: stacked categories ──
+  charts.cats.data.labels = names;
+  charts.cats.data.datasets = CAT_META.map(c => ({
+    label: c.label,
+    data: keys.map(k => llmCatTotal(k)[c.key] ?? 0),
+    backgroundColor: c.fill, borderColor: c.color,
+    borderWidth:1, borderRadius:2, borderSkipped:false,
+  }));
+  charts.cats.update();
+
+  // ── Chart 6: timing ──
+  charts.timing.data.labels   = names;
+  charts.timing.data.datasets = [{
+    label:'Average time',
+    data: keys.map(k => parseFloat(llmAvgTime(k).toFixed(1))),
+    backgroundColor: llms.map(d=>d.fill), borderColor: llms.map(d=>d.color),
+    borderWidth:1.5, borderRadius:4, borderSkipped:false,
+  }];
+  charts.timing.update();
+
+  // ── Subtext for chart 1 ──
+  const metricLabel = {a11y:'A11Y Lint',atf:'ATF Issues',total:'A11Y + ATF'}[state.metric];
+  document.getElementById('chartRunsSub').textContent = `${metricLabel} per component and LLM`;
+
+  // ── KPIs ──
+  updateKPIs(keys, names);
+
+  // ── Table ──
+  updateTable();
+
+  // ── Legend ──
+  buildLegend('legendRuns', llms.map((_,i)=>names[i]), llms.map(d=>d.color));
+  buildLegend('legendCats', CAT_META.map(c=>c.label), CAT_META.map(c=>c.color));
+}
+
+function updateKPIs(keys, names) {
+  const runs = filteredRuns();
+  document.getElementById('kpiRuns').textContent = runs.length;
+  document.getElementById('kpiRunsDetail').innerHTML = `<strong>${runs.length} component${runs.length!==1?'s':''}</strong>`;
+
+  if (keys.length === 0) {
+    ['kpiTotal','kpiTotalDetail','kpiBest','kpiBestDetail','kpiWorst','kpiWorstDetail'].forEach(id=>{
+      document.getElementById(id).textContent='—';
+    });
+    return;
+  }
+
+  const totals = keys.map(k => llmTotal(k));
+  const total  = totals.reduce((a,b)=>a+b,0);
+  const errors = keys.reduce((s,k)=>s+filteredRuns().reduce((s2,r)=>s2+(r.llms[k]?.errors??0),0),0);
+  document.getElementById('kpiTotal').textContent = total;
+  document.getElementById('kpiTotalDetail').innerHTML = `<strong>${errors} errors</strong> detected`;
+
+  const minIdx = totals.indexOf(Math.min(...totals));
+  const maxIdx = totals.indexOf(Math.max(...totals));
+  const avgMin = (totals[minIdx] / Math.max(1, runs.length)).toFixed(1);
+  const avgMax = (totals[maxIdx] / Math.max(1, runs.length)).toFixed(1);
+
+  document.getElementById('kpiBest').textContent = names[minIdx];
+  document.getElementById('kpiBestDetail').innerHTML = `Average of <strong>${avgMin}</strong>/run`;
+  document.getElementById('kpiWorst').textContent = names[maxIdx];
+  document.getElementById('kpiWorstDetail').innerHTML = `Average of <strong>${avgMax}</strong>/run`;
+}
+
+function updateTable() {
+  const llms  = activeLLMs();
+  const runs  = filteredRuns();
+  if (!runs.length || !llms.length) {
+    document.getElementById('runTableBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9286ae;padding:24px">No data for the selected filters</td></tr>';
+    return;
+  }
+  let html = '';
+  runs.forEach(run => {
+    llms.forEach((d, i) => {
+      const entry = run.llms[d.key];
+      if (!entry) return;
+      const isBest = entry.a11y === Math.min(...llms.map(x=>run.llms[x.key]?.a11y??Infinity));
+      html += `<tr>
+        ${i === 0 ? `<td class="td-run" rowspan="${llms.length}">${run.component}</td><td style="color:var(--muted);font-size:0.78rem" rowspan="${llms.length}">${run.date}</td>` : ''}
+        <td><div class="td-llm"><div class="td-dot" style="background:${d.color}"></div>${llmDisplayName(d.key)}</div></td>
+        <td class="${isBest?'best-cell':''}">${entry.a11y}</td>
+        <td class="${entry.errors>0?'sev-error':'sev-warn'}">${entry.errors}</td>
+        <td class="sev-warn">${entry.warnings}</td>
+        <td>${entry.atf}</td>
+        <td style="color:var(--muted)">${entry.time}s</td>
+      </tr>`;
+    });
+  });
+  document.getElementById('runTableBody').innerHTML = html;
+}
+
+function buildLegend(id, names, colors) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = names.map((n,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${colors[i]}"></div>${n}</div>`).join('');
+}
+
+// ── Build filter sidebar ───────────────────────────────────────────────────────
+function buildFilters() {
+  // LLMs
+  const llmEl = document.getElementById('llmFilters');
+  llmEl.innerHTML = LLM_DEFS.map(d => `
+    <div class="llm-item">
+      <label class="llm-toggle-row" style="--llm-color:${d.color}" onclick="toggleLLM('${d.key}')">
+        <div class="llm-check on" id="chk_${d.key.replace(/\s/g,'_')}"></div>
+        <div class="llm-dot" style="background:${d.color}"></div>
+        <span class="llm-name">${d.family}</span>
+      </label>
+      <select class="ver-select" id="ver_${d.key.replace(/\s/g,'_')}" onchange="setVersion('${d.key}', this.value)">
+        ${d.versions.map(v=>`<option value="${v}"${v===d.versions[0]?' selected':''}>${v}</option>`).join('')}
+      </select>
+    </div>
+  `).join('');
+
+  // Components
+  const compEl = document.getElementById('compFilters');
+  compEl.innerHTML = RUNS.map(r => `
+    <label class="comp-item" onclick="toggleComp('${r.component}')">
+      <div class="comp-box on" id="comp_${r.component.replace(/\s/g,'_')}"></div>
+      <span class="comp-name">${r.component}</span>
+    </label>
+  `).join('');
+
+  // Metric radio handlers
+  document.querySelectorAll('input[name="metric"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      state.metric = radio.value;
+      document.querySelectorAll('.radio-dot').forEach(d => d.classList.remove('on'));
+      document.querySelector(`.radio-dot[data-m="${state.metric}"]`).classList.add('on');
+      updateAll();
+    });
+  });
+
+  // Reset
+  document.getElementById('resetBtn').addEventListener('click', resetFilters);
+}
+
+function toggleLLM(key) {
+  const id = 'chk_' + key.replace(/\s/g,'_');
+  if (state.llms.has(key)) { state.llms.delete(key); document.getElementById(id).classList.remove('on'); }
+  else                     { state.llms.add(key);    document.getElementById(id).classList.add('on'); }
+  updateAll();
+}
+
+function toggleComp(comp) {
+  const id = 'comp_' + comp.replace(/\s/g,'_');
+  if (state.comps.has(comp)) { state.comps.delete(comp); document.getElementById(id).classList.remove('on'); }
+  else                       { state.comps.add(comp);    document.getElementById(id).classList.add('on'); }
+  updateAll();
+}
+
+function setVersion(key, ver) {
+  state.versions[key] = ver;
+  updateAll();
+}
+
+function resetFilters() {
+  LLM_DEFS.forEach(d => {
+    state.llms.add(d.key);
+    state.versions[d.key] = d.versions[0];
+    document.getElementById('chk_'+d.key.replace(/\s/g,'_'))?.classList.add('on');
+    const sel = document.getElementById('ver_'+d.key.replace(/\s/g,'_'));
+    if (sel) sel.value = d.versions[0];
+  });
+  RUNS.forEach(r => {
+    state.comps.add(r.component);
+    document.getElementById('comp_'+r.component.replace(/\s/g,'_'))?.classList.add('on');
+  });
+  state.metric = 'a11y';
+  document.querySelectorAll('input[name="metric"]')[0].checked = true;
+  document.querySelectorAll('.radio-dot').forEach(d => d.classList.remove('on'));
+  document.querySelector('.radio-dot[data-m="a11y"]').classList.add('on');
+  updateAll();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildFilters();
+initCharts();
+updateAll();
+</script>
+<script src="/static/js/router.js"></script>
+</body>
+</html>

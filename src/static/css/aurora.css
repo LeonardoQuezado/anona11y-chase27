@@ -1,0 +1,14 @@
+/* Melodie A11Y — Aurora background (linked so SPA navigation never removes it) */
+.aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.aurora-blob { position: absolute; border-radius: 50%; filter: blur(120px); will-change: transform; opacity: 0.6; }
+.blob-1 { width: 900px; height: 900px; background: radial-gradient(circle, rgba(120,40,255,0.28) 0%, transparent 65%); top: -350px; left: -250px; animation: blob-drift 22s ease-in-out infinite; }
+.blob-2 { width: 700px; height: 700px; background: radial-gradient(circle, rgba(236,72,153,0.18) 0%, transparent 65%); top: 300px; right: -150px; animation: blob-drift 17s ease-in-out infinite reverse; animation-delay: -7s; }
+.blob-3 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(79,70,229,0.22) 0%, transparent 65%); bottom: 100px; left: 35%; animation: blob-drift 25s ease-in-out infinite; animation-delay: -13s; }
+@keyframes blob-drift { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(50px,-40px) scale(1.08)} 66%{transform:translate(-35px,50px) scale(0.93)} }
+
+/* Placeholder text: the browser default (#757575) is too dark on the purple panels; this keeps 4.5:1 (WCAG AA) */
+::placeholder { color: #9286ae; opacity: 1; }
+
+/* Top menu: keep each item on one line and tighten the spacing on narrower screens */
+nav .nav-link { white-space: nowrap; }
+@media (max-width: 1180px) { nav .nav-links { gap: 18px; } }

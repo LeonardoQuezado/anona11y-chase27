@@ -1,0 +1,27 @@
+Create the complete code for a screen with a retractable side navigation drawer for a native Android application using Jetpack Compose with Material 3. The drawer must contain two sections separated by a visual divider: the first with items "Home", "Promotions", "My Orders", and "My Cart"; the second with items "My Account" and "Logout". The main content area must include a top app bar with a button to open and close the drawer.
+
+IMPORTANT CONTEXT: This code will be automatically compiled and evaluated by a pipeline. Any syntax error, unresolved reference, or non-compiling construct causes the entire evaluation to fail.
+
+Technical requirements (do not change):
+- Base class: ComponentActivity — use setContent { } in onCreate
+- Use ONLY Jetpack Compose with Material 3 (androidx.compose.material3.*)
+- Available libraries: androidx.compose.*, androidx.activity.compose.*, androidx.compose.material.icons.*
+- Do NOT use accompanist (com.google.accompanist.*) — it is not available
+- Do NOT use image loading libraries (Coil, Glide, Picasso) — use Box(Modifier.background(Color.Gray)) for any image/photo placeholder
+- Material 3 typography tokens only: bodySmall/bodyMedium/bodyLarge, titleSmall/titleMedium/titleLarge, headlineSmall/headlineMedium/headlineLarge, displaySmall/displayMedium/displayLarge, labelSmall/labelMedium/labelLarge — do NOT use body1, body2, h1-h6, caption, subtitle1/subtitle2
+- Do NOT use @ExperimentalMaterialApi or any other experimental annotation
+- All import statements must be on a single line — no multi-line imports
+- ALL code in a single ```kotlin block, no XML files, no navigation to other Activities
+- Do NOT define custom Theme functions, ColorScheme vals, or Typography vals — use MaterialTheme { } directly in setContent
+- Hex colors must use the constructor format: Color(0xFFRRGGBB) — never Color.0xFFRRGGBB or Color.WHITE
+- Material icons must use Icons.Filled.XXX (not Icons.Default.XXX)
+- Do NOT reference R.string, R.drawable, or any Android resources — use hardcoded English strings instead
+- Use remember and mutableStateOf correctly — never call remember { value } without mutableStateOf
+- All @Composable function calls must occur only inside other @Composable functions — never at top level or inside lambdas that are not @Composable
+
+Return ONLY one code block with no explanation outside it:
+
+```kotlin
+// MainActivity.kt
+<all code here>
+```

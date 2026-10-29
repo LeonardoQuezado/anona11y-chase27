@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
+  <title>CHASE 2027 — Melodie A11Y</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --mono: 'SF Mono','Fira Mono','Consolas',monospace;
+      --tt-bg: #080613; --tt-panel: #0f0820; --tt-card: #130b24; --tt-border: #231545; --tt-border2: #3b2a6b;
+      --tt-text: #e8e2f8; --tt-dim: #b3a9d2; --tt-label: #9488b4; --tt-accent: #a855f7; --tt-accent2: #c084fc;
+      --tt-ok: #34d399; --tt-warn: #fbbf24; --tt-err: #f87171;
+    }
+    html { font-size: 93.75%; }
+    html, body { height: 100%; background: var(--tt-bg); color: var(--tt-text); }
+    body { font-family: var(--mono); display: flex; flex-direction: column; }
+
+    nav { font-size: medium; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 60px; height: 68px; background: rgba(6,5,13,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--tt-border); flex-shrink: 0; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 52px; width: auto; }
+    .nav-links { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+    .nav-link { font-size: 0.82em; color: #9488b4; text-decoration: none; transition: color 0.15s; letter-spacing: 0.13em; text-transform: uppercase; line-height: 1; display: inline-flex; align-items: center; font-family: var(--mono); }
+    .nav-link:hover { color: #e8e2f8; }
+    .nav-link.active { color: #c084fc; }
+    .nav-cta { margin-left: 28px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.82em !important; transition: opacity 0.15s, transform 0.15s !important; }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+    .page { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: transparent; }
+
+    /* ── CHASE 2027 page layout: form | output | battery ── */
+    .tt-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: clamp(300px, 23vw, 370px) minmax(0, 1fr) clamp(280px, 21vw, 340px); }
+    .tt-col { min-height: 0; display: flex; flex-direction: column; background: rgba(15,8,32,0.92); }
+    .tt-col + .tt-col { border-left: 1px solid var(--tt-border); }
+    .tt-out-col { background: rgba(8,6,19,0.86); }
+    .tt-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 16px; scrollbar-width: thin; scrollbar-color: #2d1a4e transparent; }
+    .tt-head { display: flex; flex-direction: column; gap: 4px; }
+    .tt-eyebrow { font-size: 0.66rem; letter-spacing: 0.22em; text-transform: uppercase; color: #cfaefd; display: flex; align-items: center; gap: 10px; }
+    .tt-eyebrow::before { content: ''; width: 24px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #a855f7, #f472b6); }
+    .tt-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: #f5f0ff; }
+    .tt-sub { font-size: 0.74rem; color: var(--tt-dim); line-height: 1.6; }
+    .tt-field { display: flex; flex-direction: column; gap: 6px; }
+    .tt-label { font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tt-label); display: flex; justify-content: space-between; gap: 8px; }
+    .tt-input, .tt-select, .tt-code {
+      width: 100%; font: 0.82rem var(--mono); color: var(--tt-text); background: var(--tt-card);
+      border: 1px solid var(--tt-border2); border-radius: 8px; padding: 9px 11px;
+    }
+    .tt-input:focus, .tt-select:focus, .tt-code:focus { outline: none; border-color: var(--tt-accent); box-shadow: 0 0 0 3px rgba(168,85,247,0.18); }
+    .tt-select { cursor: pointer; appearance: none; background-image: linear-gradient(45deg, transparent 50%, #9488b4 50%), linear-gradient(135deg, #9488b4 50%, transparent 50%);
+      background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+    .tt-seg { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--tt-border2); border-radius: 8px; overflow: hidden; }
+    .tt-seg button { padding: 8px 4px; font: 600 0.74rem var(--mono); color: var(--tt-label); background: var(--tt-card); border: 0; cursor: pointer; }
+    .tt-seg button + button { border-left: 1px solid var(--tt-border2); }
+    .tt-seg button[aria-pressed="true"] { color: #f5f0ff; background: rgba(168,85,247,0.22); }
+    .tt-seg button:focus-visible, .tt-btn:focus-visible, .tt-link:focus-visible, .tt-cell:focus-visible { outline: 2px solid #f5f0ff; outline-offset: 2px; }
+    .tt-prompt { border: 1px solid var(--tt-border); border-radius: 10px; background: rgba(19,11,36,0.7); }
+    .tt-prompt summary { list-style: none; cursor: pointer; padding: 10px 12px; display: flex; align-items: center; gap: 8px; font-size: 0.74rem; color: var(--tt-dim); }
+    .tt-prompt summary::-webkit-details-marker { display: none; }
+    .tt-prompt summary::before { content: '▸'; color: var(--tt-accent2); transition: transform 0.15s; }
+    .tt-prompt[open] summary::before { transform: rotate(90deg); }
+    .tt-prompt pre { margin: 0 12px 10px; max-height: 180px; overflow: auto; white-space: pre-wrap; font: 0.7rem/1.55 var(--mono); color: var(--tt-dim); }
+    .tt-copy { margin-left: auto; padding: 4px 10px; border-radius: 999px; font: 600 0.68rem var(--mono); color: #f5f0ff; background: rgba(168,85,247,0.18); border: 1px solid #6d4bb8; cursor: pointer; }
+    .tt-code { flex: 1; min-height: 220px; resize: vertical; line-height: 1.55; font-size: 0.76rem; tab-size: 4; white-space: pre; }
+    .tt-hint { font-size: 0.66rem; color: var(--tt-label); }
+    .tt-actions { display: flex; gap: 10px; padding: 14px 20px 18px; border-top: 1px solid var(--tt-border); }
+    .tt-btn { padding: 12px 16px; border-radius: 999px; font: 700 0.85rem var(--mono); cursor: pointer; border: 1px solid #6d4bb8; color: #f5f0ff; background: rgba(168,85,247,0.12); }
+    .tt-btn-primary { flex: 1; border: 0; background: linear-gradient(135deg, #6d28d9, #a855f7); box-shadow: 0 0 28px rgba(168,85,247,0.3); }
+    .tt-btn:disabled { cursor: not-allowed; opacity: 0.5; box-shadow: none; }
+
+    /* output */
+    .tt-out-head { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--tt-border); }
+    .tt-out-title { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tt-label); }
+    .tt-out-label { font-size: 0.8rem; color: #f5f0ff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tt-badge { margin-left: auto; padding: 3px 10px; border-radius: 999px; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--tt-border2); color: var(--tt-label); }
+    .tt-badge[data-s="running"] { color: var(--tt-warn); border-color: rgba(251,191,36,0.45); }
+    .tt-badge[data-s="done"] { color: var(--tt-ok); border-color: rgba(52,211,153,0.45); }
+    .tt-badge[data-s="error"] { color: var(--tt-err); border-color: rgba(248,113,113,0.45); }
+    .tt-output { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; font: 0.76rem/1.65 var(--mono); white-space: pre-wrap; word-break: break-word; color: #ddd6f3; scrollbar-width: thin; scrollbar-color: #2d1a4e transparent; }
+    .tt-output .l-ok { color: var(--tt-ok); } .tt-output .l-err { color: var(--tt-err); } .tt-output .l-warn { color: var(--tt-warn); } .tt-output .l-dim { color: #9283bc; }
+    .tt-empty { margin: auto; text-align: center; color: var(--tt-label); font-size: 0.8rem; line-height: 1.8; max-width: 420px; }
+    .tt-empty b { color: #cfaefd; }
+    .tt-result { margin: 0 20px 18px; padding: 16px; border-radius: 14px; border: 1px solid var(--tt-border2); background: rgba(19,11,36,0.92); display: flex; flex-direction: column; gap: 12px; }
+    .tt-result[hidden] { display: none; }
+    .tt-result-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .tt-result-top h2 { font-size: 0.95rem; color: #f5f0ff; }
+    .tt-result-file { font-size: 0.66rem; color: var(--tt-label); }
+    .tt-stats { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+    .tt-stat { padding: 8px 10px; border-radius: 10px; background: rgba(8,6,19,0.8); border: 1px solid var(--tt-border); }
+    .tt-stat dt { font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tt-label); }
+    .tt-stat dd { font-size: 1.05rem; font-weight: 800; color: #f5f0ff; }
+    .tt-stat.is-zero dd { color: var(--tt-ok); }
+    .tt-atf-read { margin: 8px 0 0; font-size: 0.72rem; color: var(--tt-label); }
+    .tt-atf-read.is-bad { color: #ffb4c8; font-weight: 700; }
+    .tt-result-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .tt-link { text-decoration: none; display: inline-flex; align-items: center; }
+    .tt-link[hidden] { display: none; }
+
+    /* battery */
+    .tt-bat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .tt-progress { font-size: 0.7rem; color: var(--tt-dim); }
+    .tt-progress b { color: #f5f0ff; }
+    .tt-legend { display: flex; gap: 12px; font-size: 0.62rem; color: var(--tt-label); flex-wrap: wrap; }
+    .tt-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .tt-grid { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 58px); gap: 5px; align-items: center; }
+    .tt-grid-h { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tt-label); text-align: center; }
+    .tt-grid-h:first-child { text-align: left; }
+    .tt-row-name { font-size: 0.7rem; color: var(--tt-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tt-cell { height: 30px; border-radius: 8px; border: 1px solid var(--tt-border); background: rgba(19,11,36,0.8); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0; }
+    .tt-cell:hover { border-color: var(--tt-accent); }
+    .tt-cell.is-current { border-color: #f0abfc; box-shadow: 0 0 0 2px rgba(240,171,252,0.25); }
+    .tt-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #4c3a7d; }
+    .tt-dot.a { background: #a855f7; border-color: #a855f7; }
+    .tt-dot.c { background: #f472b6; border-color: #f472b6; }
+    .tt-dot.r { background: #34d399; border-color: #34d399; }
+    .tt-bat-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tt-btn-danger { border-color: rgba(248,113,113,0.55); color: #fecaca; background: rgba(248,113,113,0.08); }
+    .tt-btn-danger:hover { background: rgba(248,113,113,0.16); }
+    .tt-cellinfo { margin: 12px 0; padding: 12px; border-radius: 12px; border: 1px solid var(--tt-border); background: rgba(8,6,19,0.8); }
+    .tt-cellinfo-title { font-size: 0.8rem; font-weight: 800; color: #f5f0ff; margin: 0 0 6px; }
+    .tt-cellinfo-files { list-style: none; margin: 0 0 10px; padding: 0; font-size: 0.66rem; color: var(--tt-dim); word-break: break-all; }
+    .tt-cellinfo-files li + li { margin-top: 3px; }
+    .tt-cellinfo-files b { color: var(--tt-label); font-weight: 700; }
+    .tt-cellinfo .tt-btn { padding: 8px 14px; font-size: 0.75rem; }
+    .tt-repair { margin: 10px 0 0; padding: 12px; border-radius: 12px; border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.07); }
+    .tt-repair p { margin: 0 0 8px; font-size: 0.75rem; color: #fde68a; line-height: 1.5; }
+    .tt-repair .tt-btn { padding: 8px 14px; font-size: 0.75rem; }
+    .tt-repair-next { margin: 0 20px; padding: 8px 12px; border-radius: 10px; font-size: 0.72rem; color: #fde68a; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.35); }
+    .tt-batch { margin-top: 8px; }
+    .tt-bat-msg { font-size: 0.7rem; color: var(--tt-ok); min-height: 1em; margin: 8px 0 0; }
+
+    @media (max-width: 1280px) {
+      .tt-layout { grid-template-columns: clamp(290px, 32vw, 360px) minmax(0, 1fr); }
+      .tt-bat-col { grid-column: 1 / -1; border-left: 0 !important; border-top: 1px solid var(--tt-border); max-height: 42vh; }
+      .page { overflow-y: auto; }
+    }
+    @media (max-width: 900px) {
+      nav { padding: 0 24px; } .nav-links { display: none; }
+      .tt-layout { grid-template-columns: 1fr; }
+      .tt-col + .tt-col { border-left: 0; border-top: 1px solid var(--tt-border); }
+      .tt-out-col { min-height: 60vh; }
+      .tt-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  </style>
+  <link rel="stylesheet" href="/static/css/aurora.css">
+  <script src="/static/js/matrix-bg.js" defer></script>
+</head>
+<body>
+
+<div class="aurora">
+  <div class="aurora-blob blob-1"></div>
+  <div class="aurora-blob blob-2"></div>
+  <div class="aurora-blob blob-3"></div>
+</div>
+
+<nav>
+  <a href="/" class="nav-logo"><img src="/static/logo-wordmark.png" alt="Melodie A11Y"></a>
+  <div class="nav-links">
+    <a href="/analise"    class="nav-link">Analysis</a>
+    <a href="/correcao"   class="nav-link">Correction</a>
+    <a href="/relatorios" class="nav-link">Reports</a>
+    <a href="/docs"       class="nav-link">Documentation</a>
+    <a href="/log"        class="nav-link">Log</a>
+    <a href="/teste"        class="nav-link active">CHASE 2027</a>
+    <a href="/analise"    class="nav-link nav-cta">Start →</a>
+  </div>
+</nav>
+
+<div class="page">
+<div class="tt-layout">
+
+  <!-- ── New test ── -->
+  <section class="tt-col" aria-labelledby="tt-form-title">
+    <div class="tt-scroll">
+      <div class="tt-head">
+        <p class="tt-eyebrow">CHASE 2027</p>
+        <h1 class="tt-title" id="tt-form-title">Analyze generated code</h1>
+        <p class="tt-sub">Generate the screen in the AI chat, paste the code here, and Melodie compiles it and analyzes it with Lint and ATF, without calling any API.</p>
+      </div>
+
+      <div class="tt-field">
+        <label class="tt-label" for="ttScreen">Screen</label>
+        <select class="tt-select" id="ttScreen"><option value="">— loading —</option></select>
+      </div>
+
+      <div class="tt-field">
+        <span class="tt-label" id="ttGenLabel">Generating AI</span>
+        <div class="tt-seg" role="group" aria-labelledby="ttGenLabel" id="ttGen">
+          <button type="button" data-gen="Claude" aria-pressed="true">Claude</button>
+          <button type="button" data-gen="ChatGPT" aria-pressed="false">ChatGPT</button>
+          <button type="button" data-gen="Gemini" aria-pressed="false">Gemini</button>
+          <button type="button" data-gen="Outra" aria-pressed="false">Other</button>
+        </div>
+      </div>
+
+      <div class="tt-field">
+        <label class="tt-label" for="ttLabel"><span>Test name</span><span class="tt-hint">used in every file</span></label>
+        <input class="tt-input" id="ttLabel" autocomplete="off" spellcheck="false">
+      </div>
+
+      <details class="tt-prompt" id="ttPromptBox" hidden>
+        <summary>Prompt for this screen <button type="button" class="tt-copy" id="ttCopy">Copy prompt</button></summary>
+        <pre id="ttPromptText"></pre>
+      </details>
+
+      <div class="tt-field" style="flex:1">
+        <label class="tt-label" for="ttCode"><span>Kotlin code</span><span class="tt-hint" id="ttLines">0 lines</span></label>
+        <textarea class="tt-code" id="ttCode" spellcheck="false" placeholder="Paste the AI's first answer here (the whole ```kotlin block works)."></textarea>
+      </div>
+
+      <div class="tt-field">
+        <label class="tt-label" for="ttValidation">Calibration and validation screens (ready-made code)</label>
+        <select class="tt-select" id="ttValidation"><option value="">— pasted code —</option></select>
+      </div>
+    </div>
+    <p class="tt-repair-next" id="ttRepairNext" role="status" hidden></p>
+    <div class="tt-actions">
+      <button type="button" class="tt-btn" id="ttClear">Clear</button>
+      <button type="button" class="tt-btn tt-btn-primary" id="ttRun">▶ Build and analyze</button>
+    </div>
+  </section>
+
+  <!-- ── Output ── -->
+  <section class="tt-col tt-out-col" aria-labelledby="tt-out-title">
+    <div class="tt-out-head">
+      <h2 class="tt-out-title" id="tt-out-title">Pipeline output</h2>
+      <span class="tt-out-label" id="ttOutLabel"></span>
+      <span class="tt-badge" id="ttBadge" data-s="idle" role="status">Ready</span>
+    </div>
+    <div class="tt-output" id="ttOutput" aria-live="off">
+      <p class="tt-empty" id="ttEmpty">Choose the <b>screen</b> and the <b>AI</b>, copy the prompt, paste the AI's first answer and click <b>Build and analyze</b>.<br>Then go on to <b>Correction</b> and <b>Re-analysis</b>: the test name follows all three files.</p>
+    </div>
+    <section class="tt-result" id="ttResult" hidden aria-live="polite">
+      <div class="tt-result-top"><h2 id="ttResultTitle"></h2><span class="tt-result-file" id="ttResultFile"></span></div>
+      <dl class="tt-stats" id="ttStats"></dl>
+      <p class="tt-atf-read" id="ttAtfRead"></p>
+      <div class="tt-repair" id="ttRepair" hidden>
+        <p id="ttRepairText"></p>
+        <button type="button" class="tt-btn" id="ttRepairCopy">Copy repair prompt</button>
+      </div>
+      <div class="tt-result-actions">
+        <a class="tt-btn tt-btn-primary tt-link" id="ttToCorrection" href="/correcao">Fix this report →</a>
+        <button type="button" class="tt-btn" id="ttNext">Next test</button>
+      </div>
+    </section>
+  </section>
+
+  <!-- ── Battery progress ── -->
+  <section class="tt-col tt-bat-col" aria-labelledby="tt-bat-title">
+    <div class="tt-scroll">
+      <div class="tt-bat-head">
+        <h2 class="tt-title" id="tt-bat-title" style="font-size:1rem">CHASE 2027 battery</h2>
+        <span class="tt-progress" id="ttProgress"></span>
+      </div>
+      <div class="tt-legend" aria-hidden="true">
+        <span><i class="tt-dot a"></i>Analyzed</span><span><i class="tt-dot c"></i>Corrected</span><span><i class="tt-dot r"></i>Re-analyzed</span>
+      </div>
+      <div class="tt-grid" id="ttGrid" role="grid" aria-label="Battery progress by screen and AI"></div>
+      <section class="tt-cellinfo" id="ttCellInfo" hidden aria-labelledby="ttCellTitle">
+        <h3 class="tt-cellinfo-title" id="ttCellTitle"></h3>
+        <ul class="tt-cellinfo-files" id="ttCellFiles"></ul>
+        <div class="tt-bat-actions">
+          <button type="button" class="tt-btn" id="ttCellCorrect">Redo correction</button>
+          <button type="button" class="tt-btn" id="ttCellReanalyse">Redo re-analysis</button>
+          <button type="button" class="tt-btn tt-btn-danger" id="ttCellDelete">Delete to redo</button>
+        </div>
+      </section>
+      <div class="tt-bat-actions">
+        <a class="tt-btn tt-link" href="/api/battery.csv" download>Export CSV</a>
+        <button type="button" class="tt-btn" id="ttRefresh">Refresh</button>
+        <button type="button" class="tt-btn tt-btn-danger" id="ttRestart">Restart battery</button>
+      </div>
+      <div class="tt-bat-actions tt-batch">
+        <button type="button" class="tt-btn" id="ttBatchCorrect">Fix all</button>
+        <button type="button" class="tt-btn" id="ttBatchReanalyse">Re-analyze all</button>
+        <button type="button" class="tt-btn tt-btn-danger" id="ttBatchStop" hidden>Stop</button>
+      </div>
+      <p class="tt-bat-msg" id="ttBatMsg" role="status"></p>
+      <p class="tt-hint">Click a cell to prepare that test. The CSV has the before and after of each screen, ready for the spreadsheet. Deleting moves the files to outputs/lixeira, where they can be recovered.</p>
+    </div>
+  </section>
+
+</div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const GENS = ['Claude', 'ChatGPT', 'Gemini'];
+  const MODE = { claro: 'light', escuro: 'dark' };   // ui_mode values stored in the reports
+  let prompts = [], gen = 'Claude', labelTouched = false, running = false, battery = [];
+  // manual repair (same protocol as SELF_REPAIR): the next analysis of `label` is attempt n
+  let repair = null, lastReport = null;
+  // clipboard API, with a fallback for pages opened over plain http on the network
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return; } catch (_) { /* fallback below */ }
+    const t = document.createElement('textarea');
+    t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    const ok = document.execCommand('copy'); t.remove();
+    if (!ok) throw new Error('the clipboard is not available');
+  }
+  function setRepair(r) {
+    repair = r;
+    $('ttRepairNext').hidden = !r;
+    if (r) $('ttRepairNext').textContent = `Next analysis of ${r.label}: repair ${r.attempt} of ${r.max}. Paste the answer from the same chat here.`;
+  }
+
+  const slug = s => (s || '').trim().replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function autoLabel() {
+    if (labelTouched) return;
+    const screen = $('ttScreen').value;
+    $('ttLabel').value = slug(`${screen || 'test'}_${gen}`).toLowerCase();
+  }
+  function showPrompt() {
+    const p = prompts.find(x => x.id === $('ttScreen').value);
+    $('ttPromptBox').hidden = !p;
+    if (p) $('ttPromptText').textContent = p.text;
+  }
+  function setGen(g) {
+    gen = g;
+    $('ttGen').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gen === g)));
+    autoLabel(); markCurrent();
+    if (repair && slug($('ttLabel').value) !== repair.label) setRepair(null);
+  }
+
+  async function loadPrompts() {
+    try {
+      prompts = (await (await fetch('/api/battery-prompts')).json()).prompts || [];
+    } catch (_) { prompts = []; }
+    const sel = $('ttScreen');
+    sel.innerHTML = prompts.map(p => `<option value="${esc(p.id)}">${esc(p.id.slice(0, 2))} · ${esc(p.name)}</option>`).join('') + '<option value="">Other screen (free)</option>';
+    autoLabel(); showPrompt();
+  }
+
+  async function loadValidation() {
+    try {
+      const screens = (await (await fetch('/api/validation-screens')).json()).screens || [];
+      const opt = s => `<option value="${esc(s.id)}">${esc(s.name)}${s.expected ? ' — ' + esc(s.expected) : ''}</option>`;
+      const calib = screens.filter(s => s.id.startsWith('Calibracao')), webmedia = screens.filter(s => !s.id.startsWith('Calibracao'));
+      $('ttValidation').insertAdjacentHTML('beforeend',
+        (calib.length ? `<optgroup label="Calibration (run before the battery)">${calib.map(opt).join('')}</optgroup>` : '')
+        + (webmedia.length ? `<optgroup label="WebMedia validation">${webmedia.map(opt).join('')}</optgroup>` : ''));
+      $('ttValidation').addEventListener('change', () => {
+        const s = screens.find(x => x.id === $('ttValidation').value);
+        if (!s) { labelTouched = false; autoLabel(); return; }   // back to pasted code: back to the automatic name
+        $('ttCode').value = s.code; countLines();
+        if (!labelTouched) $('ttLabel').value = slug('validacao_' + s.id).toLowerCase();
+      });
+    } catch (_) { /* optional */ }
+  }
+
+  function countLines() {
+    const n = $('ttCode').value ? $('ttCode').value.split('\n').length : 0;
+    $('ttLines').textContent = `${n} line${n === 1 ? '' : 's'}`;
+  }
+
+  // ── battery grid ──
+  async function loadBattery() {
+    try { battery = (await (await fetch('/api/battery')).json()).rows || []; } catch (_) { battery = []; }
+    renderGrid();
+  }
+  function stageOf(screen, g) {
+    const rows = battery.filter(r => r.screen === screen && (r.generator || '').toLowerCase() === g.toLowerCase());
+    const last = rows[rows.length - 1];
+    return { a: rows.length > 0, c: !!(last && last.corrected), r: !!(last && last.reanalysis), last };
+  }
+  function renderGrid() {
+    const grid = $('ttGrid');
+    let html = '<div class="tt-grid-h" role="columnheader">Screen</div>' + GENS.map(g => `<div class="tt-grid-h" role="columnheader">${g}</div>`).join('');
+    let done = 0;
+    for (const p of prompts) {
+      html += `<div class="tt-row-name" role="rowheader" title="${esc(p.name)}">${esc(p.id.slice(0, 2))} ${esc(p.name)}</div>`;
+      for (const g of GENS) {
+        const st = stageOf(p.id, g);
+        if (st.r) done++;
+        const stage = st.r ? 'analyzed, corrected and re-analyzed' : st.c ? 'analyzed and corrected' : st.a ? 'analyzed' : 'not started';
+        const extra = st.last && st.last.after ? `, from ${st.last.before.total} to ${st.last.after.total} violations` : st.last ? `, ${st.last.before.total} violations` : '';
+        html += `<button type="button" class="tt-cell" role="gridcell" data-screen="${esc(p.id)}" data-gen="${g}" aria-label="${esc(p.name)} with ${g}: ${stage}${extra}" title="${esc(p.name)} · ${g}: ${stage}${extra}">
+          <i class="tt-dot${st.a ? ' a' : ''}"></i><i class="tt-dot${st.c ? ' c' : ''}"></i><i class="tt-dot${st.r ? ' r' : ''}"></i></button>`;
+      }
+    }
+    grid.innerHTML = html;
+    $('ttProgress').innerHTML = `<b>${done}</b> of ${prompts.length * GENS.length} complete`;
+    grid.querySelectorAll('.tt-cell').forEach(c => c.addEventListener('click', () => {
+      $('ttScreen').value = c.dataset.screen; labelTouched = false;
+      setGen(c.dataset.gen); showPrompt(); $('ttCode').focus();
+    }));
+    markCurrent();
+  }
+  function markCurrent() {
+    $('ttGrid').querySelectorAll('.tt-cell').forEach(c => c.classList.toggle('is-current', c.dataset.screen === $('ttScreen').value && c.dataset.gen === gen));
+    renderCellInfo();
+  }
+
+  // files of the selected cell, with the option to delete them and redo the test
+  function renderCellInfo() {
+    const screen = $('ttScreen').value, p = prompts.find(x => x.id === screen);
+    const st = p ? stageOf(screen, gen) : { a: false };
+    $('ttCellInfo').hidden = !st.a;
+    if (!st.a) return;
+    const r = st.last;
+    $('ttCellTitle').textContent = `${screen.slice(0, 2)} ${p.name} · ${gen}`;
+    $('ttCellFiles').innerHTML = [['Analysis', r.analysis], ['Corrected', r.corrected], ['Re-analysis', r.reanalysis]]
+      .filter(([, f]) => f).map(([k, f]) => `<li><b>${k}:</b> ${esc(f)}</li>`).join('');
+    $('ttCellDelete').setAttribute('aria-label', `Delete the files of ${p.name} with ${gen} to redo it`);
+    // redo one step of this test only: correction needs a valid analysis, re-analysis a corrected file
+    $('ttCellCorrect').hidden = !(r.before && r.before.build === 'success' && r.atf_ok && r.before.total > 0);
+    $('ttCellReanalyse').hidden = !r.corrected;
+  }
+
+  async function deleteTests(body, question) {
+    if (!confirm(question)) return;
+    try {
+      const res = await fetch('/api/battery/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error((await res.json()).detail || res.status);
+      const out = await res.json();
+      $('ttBatMsg').textContent = out.moved.length
+        ? `${out.moved.length} file${out.moved.length === 1 ? '' : 's'} moved to ${out.trash}.`
+        : 'Nothing to delete.';
+    } catch (e) { $('ttBatMsg').textContent = `Could not delete: ${e.message}`; }
+    await loadBattery();
+  }
+
+  $('ttCellDelete').addEventListener('click', () => {
+    const p = prompts.find(x => x.id === $('ttScreen').value);
+    deleteTests({ screen: $('ttScreen').value, generator: gen },
+      `Delete the analysis, correction and re-analysis of ${p ? p.name : ''} with ${gen}?\n\nThe files go to outputs/lixeira and can be recovered.`);
+  });
+  $('ttRestart').addEventListener('click', () => {
+    const n = battery.length;
+    deleteTests({ all: true },
+      `Restart the battery? ${n === 1 ? 'The test' : `The ${n} tests`} (analyses, corrections and re-analyses) will go to outputs/lixeira.\n\nThe calibration screens are not affected.`);
+  });
+
+  // ── batch: correct every analysed screen, then re-analyse every corrected one ──
+  let batchStop = false;
+
+  async function streamLines(url, body, onLine) {
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(err.detail || resp.statusText);
+    }
+    const reader = resp.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split('\n\n'); buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data:')) continue;
+        const text = part.slice(5).replace(/^ /, '');
+        if (text !== '__DONE__') onLine(text);
+      }
+    }
+  }
+
+  function setBatchRunning(on) {
+    running = on; batchStop = false;
+    $('ttRun').disabled = on; $('ttBatchCorrect').disabled = on; $('ttBatchReanalyse').disabled = on; $('ttRestart').disabled = on;
+    $('ttCellCorrect').disabled = on; $('ttCellReanalyse').disabled = on; $('ttCellDelete').disabled = on;
+    $('ttBatchStop').hidden = !on; $('ttBatchStop').disabled = false; $('ttBatchStop').textContent = 'Stop';
+  }
+
+  // kind = 'correct' | 'reanalyse'; only = one row of the grid to redo (otherwise every pending one)
+  async function runBatch(kind, only = null) {
+    if (running) return;
+    await loadBattery();
+    const rows = only ? [only] : battery.filter(r => kind === 'correct'
+      ? r.before && r.before.build === 'success' && r.atf_ok && r.before.total > 0 && !r.corrected
+      : r.corrected && !r.reanalysis);
+    const skippedInvalid = kind === 'correct' && !only
+      ? battery.filter(r => r.before && r.before.build === 'success' && !r.atf_ok && !r.corrected).map(r => r.label) : [];
+    const what = kind === 'correct' ? 'fix' : 're-analyze';
+    if (!rows.length) {
+      $('ttBatMsg').textContent = `No screens to ${what}.`
+        + (skippedInvalid.length ? ` Left out of the batch because the analysis has no valid ATF read (redo the analysis): ${skippedInvalid.join(', ')}.` : '');
+      return;
+    }
+    const time = kind === 'correct' ? 'about 1 min per screen (Qwen on the lab server)' : 'about 4.5 min per screen (build, lint and ATF)';
+    if (only && !confirm(kind === 'correct'
+      ? `Redo the correction of ${only.label}? A new corrected file is created (the previous one is kept) and the re-analysis has to be redone afterwards.`
+      : `Redo the re-analysis of ${only.label} (${only.corrected})? It takes about 4.5 min; keep the phone on. The previous re-analysis is kept.`)) return;
+    if (!only && !confirm(`${kind === 'correct' ? 'Fix' : 'Re-analyze'} ${rows.length} screen${rows.length === 1 ? '' : 's'}, one at a time? It takes ${time}.\n\nKeep this tab open${kind === 'reanalyse' ? ' and the phone on' : ''}. The Stop button halts after the current screen.`)) return;
+
+    setBatchRunning(true);
+    $('ttResult').hidden = true; $('ttEmpty')?.remove();
+    const done = [], skipped = [], redo = [];
+    let stopReason = '';
+    for (let i = 0; i < rows.length; i++) {
+      if (batchStop) { stopReason = 'stopped by you'; break; }
+      const r = rows[i];
+      $('ttBatMsg').textContent = `${i + 1} of ${rows.length} · ${kind === 'correct' ? 'fixing' : 're-analyzing'} ${r.label}…`;
+      $('ttOutput').innerHTML = ''; $('ttOutLabel').textContent = `${r.label} (${kind === 'correct' ? 'correction' : 're-analysis'})`;
+      setBadge('running', `${i + 1}/${rows.length}`);
+      let produced = null, error = false;
+      try {
+        await streamLines(kind === 'correct' ? '/api/correct' : '/api/reanalyse',
+          kind === 'correct' ? { filename: r.analysis } : { kt_file: r.corrected },
+          text => {
+            if (text.startsWith('CORRECTED_FILE:') || text.startsWith('REANALYSIS_REPORT:')) { produced = text.split(':').slice(1).join(':').trim(); return; }
+            if (/\[ERROR\]|Traceback/.test(text)) error = true;
+            line(text);
+          });
+      } catch (e) { line(`ERROR: ${e.message}`); error = true; }
+      if (error && kind === 'correct') { stopReason = `the correction of ${r.label} failed (lab server token or VPN?)`; break; }
+      if (!produced) { (error ? redo : skipped).push(r.label); continue; }
+      done.push(r.label);
+      if (kind === 'reanalyse') {
+        // a re-analysis without a valid ATF read must be redone
+        try {
+          const rep = await (await fetch(`/api/reports/${encodeURIComponent(produced)}`)).json();
+          const entry = Object.values(rep.llms || {})[0] || {};
+          const diags = (entry.atf_issues && entry.atf_issues.diagnostics) || [];
+          const first = /^pass 1: (\d+) nodes/.exec(diags[0] || '');
+          const mode = (entry.atf_issues && entry.atf_issues.ui_mode) || '';
+          const built = entry.status === 'success';
+          if (built && (!first || +first[1] <= 1 || (mode && mode !== 'claro'))) redo.push(r.label);
+        } catch (_) { redo.push(r.label); }
+      }
+      await loadBattery();
+    }
+    setBatchRunning(false);
+    await loadBattery();
+    const parts = [`${done.length} of ${rows.length} ${kind === 'correct' ? 'fixed' : 're-analyzed'}`];
+    if (skipped.length) parts.push(`skipped: ${skipped.join(', ')}`);
+    if (redo.length) parts.push(`redo: ${redo.join(', ')}`);
+    if (skippedInvalid.length) parts.push(`left out of the batch (analysis without a valid ATF read): ${skippedInvalid.join(', ')}`);
+    if (stopReason) parts.push(`stopped: ${stopReason}`);
+    $('ttBatMsg').textContent = parts.join(' · ') + '.';
+    setBadge(stopReason && !/by you/.test(stopReason) ? 'error' : 'done', stopReason ? 'Stopped' : 'Batch done');
+  }
+
+  $('ttBatchCorrect').addEventListener('click', () => runBatch('correct'));
+  const selectedRow = () => stageOf($('ttScreen').value, gen).last;
+  $('ttCellCorrect').addEventListener('click', () => { const r = selectedRow(); if (r) runBatch('correct', r); });
+  $('ttCellReanalyse').addEventListener('click', () => { const r = selectedRow(); if (r) runBatch('reanalyse', r); });
+  $('ttBatchReanalyse').addEventListener('click', () => runBatch('reanalyse'));
+  $('ttBatchStop').addEventListener('click', () => {
+    batchStop = true; $('ttBatchStop').disabled = true; $('ttBatchStop').textContent = 'Stopping after this screen…';
+  });
+
+  // ── run ──
+  function setBadge(s, text) { const b = $('ttBadge'); b.dataset.s = s; b.textContent = text; }
+  function line(text) {
+    const div = document.createElement('div');
+    if (/FAIL|ERRO|Error|error:|Traceback/.test(text)) div.className = 'l-err';
+    else if (/WARN|aviso/i.test(text)) div.className = 'l-warn';
+    else if (/✓|OK\b|success|SUCCESS|Pipeline complete|concluíd/i.test(text)) div.className = 'l-ok';
+    else if (/^[─=]+$/.test(text.trim())) div.className = 'l-dim';
+    div.textContent = text;
+    const out = $('ttOutput'); out.append(div);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  async function run() {
+    if (running) return;
+    const code = $('ttCode').value.trim();
+    if (!code) { $('ttCode').focus(); setBadge('error', 'Paste the code'); return; }
+    const label = slug($('ttLabel').value) || 'test';
+    $('ttLabel').value = label;
+    running = true; $('ttRun').disabled = true; $('ttRun').textContent = 'Analyzing…';
+    $('ttResult').hidden = true; $('ttEmpty')?.remove();
+    $('ttOutput').innerHTML = ''; $('ttOutLabel').textContent = label;
+    setBadge('running', 'Running');
+    let reportFile = null, failed = false;
+    try {
+      const p = prompts.find(x => x.id === $('ttScreen').value);
+      const resp = await fetch('/api/test-run', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // calibration/validation screens are not part of the battery: tag them so the grid and CSV leave them out
+        body: JSON.stringify($('ttValidation').value
+          ? { kotlin_code: code, label, screen: 'validacao_' + $('ttValidation').value, generator: 'Referência', prompt_file: '' }
+          : { kotlin_code: code, label, screen: $('ttScreen').value, generator: gen, prompt_file: p ? p.file : '',
+              repair_attempt: repair && repair.label === label ? repair.attempt : 0 }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        line(`ERROR: ${err.detail || resp.statusText}`); failed = true;
+      } else {
+        const reader = resp.body.getReader(), dec = new TextDecoder();
+        let buf = '';
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const parts = buf.split('\n\n'); buf = parts.pop();
+          for (const part of parts) {
+            if (!part.startsWith('data:')) continue;
+            const text = part.slice(5).replace(/^ /, '');
+            if (text === '__DONE__') continue;
+            if (text.startsWith('REPORT_FILE:')) { reportFile = text.slice(12).trim(); continue; }
+            if (/\[FAIL\]|Traceback/.test(text)) failed = true;
+            line(text);
+          }
+        }
+      }
+    } catch (e) { line(`Connection error: ${e.message}`); failed = true; }
+    running = false; $('ttRun').disabled = false; $('ttRun').textContent = '▶ Build and analyze';
+    setRepair(null);
+    if (reportFile) await showResult(reportFile);
+    else setBadge('error', failed ? 'Failed' : 'No report');
+    loadBattery();
+  }
+
+  async function showResult(file) {
+    try {
+      const data = await (await fetch(`/api/reports/${encodeURIComponent(file)}`)).json();
+      const entry = Object.values(data.llms || {})[0] || {};
+      const atf = (entry.atf_issues && entry.atf_issues.issues) || [];
+      const n = c => atf.filter(i => i.check === c).length;
+      // disabled fields showing data are beyond WCAG: shown apart, kept out of the total
+      const staticList = (entry.static_issues && entry.static_issues.issues) || [];
+      const beyond = staticList.filter(i => i.id === 'ComposeDisabledFieldWithValue').length;
+      const lint = (entry.accessibility_issues || {}).total || 0, stat = ((entry.static_issues || {}).total || 0) - beyond;
+      const ok = entry.status === 'success';
+      lastReport = file;
+      const attempt = +((data.meta || {}).repair_attempt || 0);
+      const total = atf.length + lint + stat;
+      const afterRepair = attempt ? ` · after ${attempt} repair${attempt === 1 ? '' : 's'}` : '';
+      $('ttResultTitle').textContent = (ok ? `Build OK · ${total} violation${total === 1 ? '' : 's'}` : `Build failed (${entry.status || 'error'})`) + afterRepair;
+      // a build failure can be sent back to the same chat, up to 2 times
+      const failedBuild = entry.status === 'build_failed', canRepair = failedBuild && attempt < 2;
+      $('ttRepair').hidden = !failedBuild;
+      $('ttRepairCopy').hidden = !canRepair;
+      $('ttRepairText').textContent = !failedBuild ? '' : canRepair
+        ? `The code did not compile${attempt ? ` (repair ${attempt})` : ''}. Copy the repair prompt, paste it in the same AI chat and analyze the answer: it counts as repair ${attempt + 1} of 2.`
+        : 'The code did not compile after 2 repairs: the screen is recorded as a build failure.';
+      $('ttResultFile').textContent = file;
+      const stats = [['ST', n('SpeakableTextPresentCheck')], ['TT', n('TouchTargetSizeCheck')], ['CT', n('TextContrastCheck')], ['ATF', atf.length], ['Lint', lint], ['Static', stat], ['Beyond WCAG', beyond]];
+      $('ttStats').innerHTML = stats.map(([k, v]) => `<div class="tt-stat${v === 0 ? ' is-zero' : ''}"><dt>${k}</dt><dd>${ok ? v : '—'}</dd></div>`).join('');
+      // evidence that the ATF actually read the screen: the first pass must have seen the app's nodes
+      const diags = (entry.atf_issues && entry.atf_issues.diagnostics) || [];
+      const first = /^pass 1: (\d+) nodes/.exec(diags[0] || '');
+      const uiMode = (entry.atf_issues && entry.atf_issues.ui_mode) || '';
+      // light mode is the protocol: a run in any other theme is not valid
+      const readOk = !!first && +first[1] > 1 && (!uiMode || uiMode === 'claro');
+      $('ttAtfRead').className = 'tt-atf-read' + (ok && !readOk ? ' is-bad' : '');
+      $('ttAtfRead').textContent = !ok ? '' : readOk
+        ? `ATF read: ${diags.length} pass${diags.length === 1 ? '' : 'es'} · 1st with ${first[1]} nodes`
+          + (uiMode ? ` · ${MODE[uiMode] || uiMode} mode` : '')
+        : first && uiMode && uiMode !== 'claro'
+          ? `ATF ran with the phone in ${MODE[uiMode] || uiMode} mode: the protocol is light mode. Redo this analysis.`
+          : 'ATF read without diagnostics: there is no proof the screen was read. Redo this analysis.';
+      $('ttToCorrection').href = `/correcao?report=${encodeURIComponent(file)}`;
+      $('ttToCorrection').hidden = !ok || total === 0;
+      $('ttResult').hidden = false;
+      setBadge(ok ? 'done' : 'error', ok ? 'Done' : 'Build failed');
+    } catch (_) { setBadge('error', 'Failed to read report'); }
+  }
+
+  function nextTest() {
+    // move to the next not-yet-analysed cell of the battery
+    for (const p of prompts) for (const g of GENS) {
+      if (!stageOf(p.id, g).a) { $('ttScreen').value = p.id; labelTouched = false; setGen(g); showPrompt(); clearCode(); $('ttCode').focus(); return; }
+    }
+    clearCode();
+  }
+  function clearCode() {
+    const wasValidation = !!$('ttValidation').value || /^validacao_/.test($('ttLabel').value);
+    $('ttCode').value = ''; $('ttValidation').value = ''; countLines();
+    if (wasValidation) labelTouched = false;
+    autoLabel();
+  }
+
+  // ── wiring ──
+  $('ttScreen').addEventListener('change', () => { labelTouched = false; autoLabel(); showPrompt(); markCurrent(); setRepair(null); });
+  $('ttGen').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setGen(b.dataset.gen)));
+  $('ttLabel').addEventListener('input', () => { labelTouched = true; if (repair && slug($('ttLabel').value) !== repair.label) setRepair(null); });
+  $('ttRepairCopy').addEventListener('click', async () => {
+    try {
+      const res = await fetch(`/api/repair-prompt/${encodeURIComponent(lastReport)}`);
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.detail || res.status);
+      await copyText(out.text);
+      setRepair({ label: slug($('ttLabel').value), attempt: out.next_attempt, max: out.max });
+      $('ttRepairCopy').textContent = 'Prompt copied ✓';
+      setTimeout(() => { $('ttRepairCopy').textContent = 'Copy repair prompt'; }, 2500);
+      $('ttCode').value = ''; countLines(); $('ttCode').focus();
+    } catch (e) { $('ttRepairText').textContent = `Could not build the repair prompt: ${e.message}`; }
+  });
+  $('ttCode').addEventListener('input', countLines);
+  $('ttCopy').addEventListener('click', async e => {
+    e.preventDefault();
+    try { await navigator.clipboard.writeText($('ttPromptText').textContent); $('ttCopy').textContent = 'Copied ✓'; }
+    catch (_) { $('ttCopy').textContent = 'Select and copy'; }
+    setTimeout(() => { $('ttCopy').textContent = 'Copy prompt'; }, 1800);
+  });
+  $('ttRun').addEventListener('click', run);
+  $('ttClear').addEventListener('click', clearCode);
+  $('ttNext').addEventListener('click', () => { $('ttResult').hidden = true; nextTest(); });
+  $('ttRefresh').addEventListener('click', loadBattery);
+  $('ttCode').addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') run(); });
+
+  loadPrompts().then(loadBattery);
+  loadValidation();
+})();
+</script>
+<script src="/static/js/router.js"></script>
+</body>
+</html>
